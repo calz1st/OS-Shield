@@ -62,15 +62,15 @@ with st.sidebar:
                 st.rerun()
 
 # --- HELPERS ---
-def submit_counter_evidence(order_id):
+def update_dispute_status(order_id, new_status):
     if db_connected:
-        supabase.table("orders").update({"status": "📤 SUBMITTED"}).eq("order_id", order_id).execute()
-        st.toast("Evidence Transmitted!", icon="✅")
+        supabase.table("orders").update({"status": new_status}).eq("order_id", order_id).execute()
+        st.toast(f"Status updated to {new_status}", icon="✅")
         time.sleep(0.5)
         st.rerun()
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Truth Metrics)
+# MODULE 1: REVENUE SHIELD (Corrected Math)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
@@ -80,28 +80,38 @@ if page == "🛡️ Revenue Shield":
         df = pd.DataFrame(res.data)
         
         if not df.empty:
-            # --- CALCULATED METRICS ---
-            total_success = df[df['status'] == '✅ SUCCESS']['amount'].sum()
-            rescued_amt = df[df['status'] == '📤 SUBMITTED']['amount'].sum()
-            at_risk_amt = df[df['status'] == '⚠️ DISPUTED']['amount'].sum()
+            # --- UPDATED MATH LOGIC ---
+            # Successful = Original success + Won disputes
+            total_protected = df[df['status'].isin(['✅ SUCCESS', '✅ WON'])]['amount'].sum()
+            
+            # Rescued = Only orders that have been officially WON
+            rescued_val = df[df['status'] == '✅ WON']['amount'].sum()
+            
+            # At Risk = Open disputes + Submitted cases (not yet won)
+            at_risk_df = df[df['status'].isin(['⚠️ DISPUTED', '📤 SUBMITTED'])]
+            at_risk_val = at_risk_df['amount'].sum()
+            
+            # Dispute Count = Total active files
+            total_active_cases = len(at_risk_df)
             
             # 1. TOP LEVEL STATS
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Total Protected Revenue", f"${total_success:,.2f}", help="Total successful transactions")
-            c2.metric("Rescued from Disputes", f"${rescued_amt:,.2f}", delta="Shield Active", help="Revenue recovered via counter-evidence")
-            c3.metric("Currently At Risk", f"${at_risk_amt:,.2f}", delta="Immediate Action", delta_color="inverse")
-            c4.metric("Dispute Count", len(df[df['status'] == '⚠️ DISPUTED']))
+            c1.metric("Protected Revenue", f"${total_protected:,.2f}")
+            c2.metric("Currently At Risk", f"${at_risk_val:,.2f}", delta=f"{total_active_cases} Open Cases", delta_color="inverse")
+            c3.metric("Rescued Revenue", f"${rescued_val:,.2f}", delta="Bank Settlements")
+            c4.metric("Avg Case Value", f"${at_risk_df['amount'].mean():,.2f}" if not at_risk_df.empty else "$0.00")
 
             st.divider()
 
             # --- LEDGER ---
             st.subheader("📋 Order Ledger")
-            filter_view = st.radio("Display View:", ["All Orders", "Disputes Only"], horizontal=True)
+            filter_view = st.radio("Display View:", ["All Orders", "Active Cases"], horizontal=True)
             display_df = df if filter_view == "All Orders" else df[df['status'].isin(["⚠️ DISPUTED", "📤 SUBMITTED"])]
 
             def highlight_status(row):
-                if "DISPUTED" in row['status']: return ['background-color: rgba(239, 68, 68, 0.15); color: #FCA5A5; font-weight: bold;'] * len(row)
-                elif "SUBMITTED" in row['status']: return ['background-color: rgba(99, 102, 241, 0.1); color: #A5B4FC; font-weight: bold;'] * len(row)
+                if row['status'] == "⚠️ DISPUTED": return ['background-color: rgba(239, 68, 68, 0.15); color: #FCA5A5; font-weight: bold;'] * len(row)
+                elif row['status'] == "📤 SUBMITTED": return ['background-color: rgba(99, 102, 241, 0.1); color: #A5B4FC;'] * len(row)
+                elif row['status'] == "✅ WON": return ['background-color: rgba(16, 185, 129, 0.1); color: #6EE7B7; font-weight: bold;'] * len(row)
                 return ['color: #10B981;'] * len(row)
 
             st.dataframe(
@@ -122,14 +132,16 @@ if page == "🛡️ Revenue Shield":
                 
                 c_b1, c_b2 = st.columns(2)
                 with c_b1:
-                    if "DISPUTED" in current_order['status']:
-                        if st.button("🚀 SUBMIT TO BANK", type="primary", use_container_width=True):
-                            submit_counter_evidence(current_order['order_id'])
+                    if current_order['status'] == "⚠️ DISPUTED":
+                        if st.button("🚀 SUBMIT COUNTER-EVIDENCE", type="primary", use_container_width=True):
+                            update_dispute_status(current_order['order_id'], "📤 SUBMITTED")
+                    elif current_order['status'] == "📤 SUBMITTED":
+                        if st.button("🏆 MARK CASE AS WON", use_container_width=True):
+                            update_dispute_status(current_order['order_id'], "✅ WON")
                     else:
                         st.button("🔍 SCAN FOR FRAUD", use_container_width=True)
                 with c_b2:
-                    if st.button("📥 EXPORT DOSSIER (PDF)", use_container_width=True):
-                        st.components.v1.html("<script>setTimeout(function(){ window.print(); }, 300);</script>", height=0)
+                    st.button("📥 EXPORT DOSSIER (PDF)", use_container_width=True)
 
                 st.write("---")
                 st.subheader(f"🕵️ Audit Trail: {current_order['order_id']}")
@@ -137,19 +149,19 @@ if page == "🛡️ Revenue Shield":
 
             with col_right:
                 st.markdown(f"""
-                    <div id="printable-area" class="evidence-paper">
+                    <div class="evidence-paper">
                         <h2 style="text-align:center; text-decoration: underline;">LEGAL EVIDENCE</h2>
                         <p style="text-align:right;">REF: {current_order['order_id']}</p>
                         <hr>
                         <p><strong>CUSTOMER:</strong> {current_order['customer']}</p>
                         <p><strong>VALUE:</strong> ${current_order['amount']}</p>
+                        <p><strong>CURRENT STATE:</strong> {current_order['status']}</p>
                         <hr>
-                        <h4>COMPLIANCE RECORD:</h4>
                         <p>• Verified Device Fingerprint Auth</p>
-                        <p>• Delivery Success: 100% (Digital Portal)</p>
+                        <p>• Delivery Success: 100%</p>
                         <br><br>
                         <div style="border: 2px solid black; padding: 10px; text-align: center; font-weight: bold;">{current_order['status'].upper()}</div>
                     </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("No orders found. Simulate a transaction to see the metrics sync.")
+            st.info("No orders found. Simulate a transaction in the sidebar.")
