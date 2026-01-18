@@ -23,22 +23,18 @@ st.set_page_config(page_title="Creator OS | Revenue Shield", page_icon="🛡️"
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #E5E7EB; }
-    
-    /* The Evidence Paper Styling */
     .evidence-paper {
-        background-color: #FFFFFF !important; 
-        color: #111827 !important; 
-        padding: 50px !important; 
-        border-radius: 4px;
+        background-color: #FFFFFF !important; color: #111827 !important; 
+        padding: 40px !important; border-radius: 2px;
         font-family: 'Courier New', Courier, monospace;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        border: 2px solid #000;
-        margin-bottom: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #ddd;
     }
-
     .audit-log {
         background: rgba(31, 41, 55, 0.5); padding: 15px; border-radius: 8px;
         font-size: 0.85rem; border: 1px solid #374151; max-height: 200px; overflow-y: auto;
+    }
+    .risk-card {
+        padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #374151;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -73,6 +69,17 @@ def update_dispute_status(order_id, new_status):
         st.toast(f"Status updated to {new_status}", icon="✅")
         time.sleep(0.5)
         st.rerun()
+
+def perform_fraud_scan(order_id, status):
+    """Simulates AI scanning logic based on order status."""
+    with st.spinner("Analyzing transaction patterns..."):
+        time.sleep(1.2)
+        if "SUCCESS" in status:
+            return {"score": random.randint(1, 10), "verdict": "LOW RISK", "color": "#10B981", 
+                    "flags": ["✅ Verified Device", "✅ Domestic IP Match", "✅ Browser Fingerprint Clear"]}
+        else:
+            return {"score": random.randint(75, 98), "verdict": "HIGH RISK", "color": "#EF4444", 
+                    "flags": ["🚩 VPN/Proxy Detected", "🚩 High Latency Connection", "🚩 Mismatched Billing Data"]}
 
 # ==========================================
 # MODULE 1: REVENUE SHIELD
@@ -135,60 +142,34 @@ if page == "🛡️ Revenue Shield":
                         if st.button("🏆 MARK AS WON", use_container_width=True):
                             update_dispute_status(current_order['order_id'], "✅ WON")
                     else:
-                        st.button("🔍 SCAN FOR FRAUD", use_container_width=True)
-                
+                        # RESTORED: Fraud Scan Button
+                        if st.button("🔍 SCAN FOR FRAUD", use_container_width=True):
+                            scan_key = f"scan_{current_order['order_id']}"
+                            st.session_state[scan_key] = perform_fraud_scan(current_order['order_id'], current_order['status'])
+
                 with c_b2:
-                    # THE NEW PDF EXPORT LOGIC
                     if st.button("📥 EXPORT DOSSIER (PDF)", use_container_width=True):
-                        # Constructing the exact HTML to print
-                        print_html = f"""
-                        <html>
-                        <head>
-                            <style>
-                                body {{ font-family: 'Courier New', Courier, monospace; padding: 40px; color: black; background: white; }}
-                                .paper {{ border: 2px solid black; padding: 40px; }}
-                                h1 {{ text-align: center; text-decoration: underline; }}
-                                .meta {{ display: flex; justify-content: space-between; margin-bottom: 20px; }}
-                                .status {{ border: 1px solid black; padding: 10px; text-align: center; font-weight: bold; margin-top: 50px; }}
-                            </style>
-                        </head>
-                        <body>
-                            <div class='paper'>
-                                <h1>LEGAL EVIDENCE EXHIBIT</h1>
-                                <div class='meta'>
-                                    <span>ORDER ID: {current_order['order_id']}</span>
-                                    <span>REF: {datetime.datetime.now().strftime('%Y-%m-%d')}</span>
-                                </div>
-                                <hr>
-                                <p><strong>CUSTOMER:</strong> {current_order['customer']}</p>
-                                <p><strong>VALUE:</strong> ${current_order['amount']:,.2f}</p>
-                                <hr>
-                                <h3>COMPLIANCE VERIFICATION:</h3>
-                                <p>• DEVICE FINGERPRINT: AUTHENTICATED</p>
-                                <p>• IP GEOLOCATION MATCH: VERIFIED</p>
-                                <p>• PRODUCT DELIVERY: 100% COMPLETE</p>
-                                <div class='status'>{current_order['status'].upper()}</div>
-                            </div>
-                        </body>
-                        </html>
-                        """
-                        # This JavaScript opens a window, writes our HTML, and triggers print
-                        st.components.v1.html(f"""
-                            <script>
-                            const printWin = window.open('', '', 'width=800,height=600');
-                            printWin.document.write(`{print_html}`);
-                            printWin.document.close();
-                            printWin.focus();
-                            setTimeout(() => {{ printWin.print(); printWin.close(); }}, 250);
-                            </script>
-                        """, height=0)
+                        # Constructing the print HTML
+                        print_html = f"<html><body style='font-family:monospace; padding:40px;'><h1>LEGAL EXHIBIT: {current_order['order_id']}</h1><hr><p>CUSTOMER: {current_order['customer']}</p><p>VALUE: ${current_order['amount']}</p><p>STATUS: {current_order['status']}</p></body></html>"
+                        st.components.v1.html(f"<script>const pW = window.open('', '', 'width=800,height=600'); pW.document.write(`{print_html}`); pW.document.close(); setTimeout(() => {{ pW.print(); pW.close(); }}, 250);</script>", height=0)
+
+                # SHOW FRAUD SCAN RESULTS IF THEY EXIST
+                scan_key = f"scan_{current_order['order_id']}"
+                if scan_key in st.session_state:
+                    res = st.session_state[scan_key]
+                    st.markdown(f"""
+                        <div class="risk-card" style="border-left: 5px solid {res['color']};">
+                            <h4 style="color:{res['color']}; margin:0;">AI VERDICT: {res['verdict']}</h4>
+                            <p style="margin:5px 0;">Risk Score: <b>{res['score']}/100</b></p>
+                            <p style="font-size:0.8rem;">{' | '.join(res['flags'])}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
 
                 st.write("---")
                 st.subheader(f"🕵️ Audit Trail: {current_order['order_id']}")
                 st.markdown(f'<div class="audit-log">✅ Order Detected<br>🤖 AI Analysis: {current_order["status"]}</div>', unsafe_allow_html=True)
 
             with col_right:
-                # Preview of the dossier in the UI
                 st.markdown(f"""
                     <div class="evidence-paper">
                         <h2 style="text-align:center; text-decoration: underline;">LEGAL EVIDENCE</h2>
@@ -204,4 +185,4 @@ if page == "🛡️ Revenue Shield":
                     </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("No orders found. Use the sidebar to simulate a transaction.")
+            st.info("No orders found. Simulate a transaction.")
