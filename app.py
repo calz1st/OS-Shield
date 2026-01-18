@@ -27,149 +27,125 @@ st.markdown("""
         background-color: #FFFFFF; color: #111827; padding: 40px; border-radius: 2px;
         font-family: 'Courier New', Courier, monospace; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
-    /* Pulsing Alert for Disputes */
     @keyframes pulse-red {
         0% { background-color: rgba(239, 68, 68, 0.1); }
         50% { background-color: rgba(239, 68, 68, 0.3); }
         100% { background-color: rgba(239, 68, 68, 0.1); }
     }
     .dispute-alert {
-        padding: 15px;
-        border-radius: 8px;
-        border: 2px solid #EF4444;
-        animation: pulse-red 2s infinite;
-        margin-bottom: 20px;
+        padding: 15px; border-radius: 8px; border: 2px solid #EF4444;
+        animation: pulse-red 2s infinite; margin-bottom: 20px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. SIDEBAR ---
+# --- 3. SIDEBAR & SIMULATION ---
 with st.sidebar:
     st.title("🛡️ Creator OS")
     page = st.radio("Navigation", ["🛡️ Revenue Shield", "👻 Ghost Hunter", "📊 Unified Data"])
     st.divider()
     if db_connected:
-        if st.button("➕ Simulate Live Transaction"):
-            # Simulation Logic: 20% chance of a DISPUTE
-            is_dispute = random.random() < 0.2
-            
-            if is_dispute:
-                chosen_status = "⚠️ DISPUTED"
-                amount = random.choice([199.0, 499.0, 999.0])
-            else:
-                risk_types = ["Low Risk", "VPN Detected", "Zip Mismatch"]
-                chosen_status = random.choice(risk_types)
-                amount = float(random.randint(20, 500))
-            
+        if st.button("➕ Simulate New Order"):
+            is_dispute = random.random() < 0.25
+            chosen_status = "⚠️ DISPUTED" if is_dispute else "Low Risk"
             new_data = {
                 "order_id": f"#{datetime.datetime.now().strftime('%M%S')}",
                 "customer": f"user_{random.randint(10,99)}@vibe.io",
-                "amount": amount,
+                "amount": float(random.randint(49, 999)),
                 "status": chosen_status
             }
             supabase.table("orders").insert(new_data).execute()
             st.rerun()
 
+# --- HELPER: SUBMIT EVIDENCE ---
+def submit_counter_evidence(order_id):
+    if db_connected:
+        # Update the status in Supabase to '📤 SUBMITTED'
+        supabase.table("orders").update({"status": "📤 SUBMITTED"}).eq("order_id", order_id).execute()
+        st.toast(f"Evidence for {order_id} submitted to bank!", icon="📨")
+        time.sleep(1)
+        st.rerun()
+
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Alert System)
+# MODULE 1: REVENUE SHIELD (With Resolution)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
     
-    # FETCH DATA EARLY FOR ALERTS
     if db_connected:
         res = supabase.table("orders").select("*").order("created_at", desc=True).limit(50).execute()
         df = pd.DataFrame(res.data)
         
-        # Calculate Dispute Count
-        dispute_count = len(df[df['status'] == "⚠️ DISPUTED"])
+        # Calculate Alerts
+        disputes = df[df['status'] == "⚠️ DISPUTED"]
+        submitted = df[df['status'] == "📤 SUBMITTED"]
         
         # 1. TOP LEVEL STATS
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Revenue Protected", "$28,450")
-        c2.metric("Disputes Won", "14/16", "87%")
-        # Pulse the Dispute Count if it's > 0
-        c3.metric("🚨 Active Disputes", dispute_count, delta="Action Required" if dispute_count > 0 else None, delta_color="inverse")
-        c4.metric("Prevented Loss", "$4,200")
+        c2.metric("Evidence Pending", len(disputes), delta="Action Required" if len(disputes) > 0 else None, delta_color="inverse")
+        c3.metric("Under Review", len(submitted), delta="Processing")
+        c4.metric("Win Rate", "87%")
 
         st.divider()
 
-        # --- URGENT ALERT BOX ---
-        if dispute_count > 0:
-            st.markdown(f"""
-            <div class="dispute-alert">
-                <h4 style="margin:0; color: #EF4444;">🚨 URGENT: {dispute_count} Active Dispute(s) Detected</h4>
-                <p style="margin:5px 0; color: #FCA5A5;">Immediate action required to prevent revenue clawback. Review the Action Queue below.</p>
-            </div>
-            """, unsafe_allow_html=True)
+        # --- PULSING ALERT ---
+        if not disputes.empty:
+            st.markdown(f"""<div class="dispute-alert"><h4>🚨 {len(disputes)} Active Dispute(s) Needing Evidence</h4></div>""", unsafe_allow_html=True)
 
-        # --- MONITOR & DOSSIER ---
         col_feed, col_action = st.columns([1.5, 1])
 
         with col_feed:
             st.subheader("🎯 Action Queue")
-            
-            # Filter dropdown to show Disputed orders first
             queue_options = df.index.tolist()
-            # Sort the index so Disputed ones are at the top
+            # Sort so Disputed ones are at the very top
             queue_options.sort(key=lambda x: 0 if df.iloc[x]['status'] == "⚠️ DISPUTED" else 1)
             
-            selected_row = st.selectbox("Select order to defend:", queue_options, 
-                                        format_func=lambda x: f"{df.iloc[x]['status']} | {df.iloc[x]['order_id']} (${df.iloc[x]['amount']})")
+            selected_row = st.selectbox("Select Transaction", queue_options, 
+                                        format_func=lambda x: f"{df.iloc[x]['status']} | {df.iloc[x]['order_id']}")
             
             current_order = df.iloc[selected_row]
             
-            # Risk Analysis Card
-            status_style = "background: rgba(239, 68, 68, 0.2); border-left: 5px solid #EF4444;" if "DISPUTED" in current_order['status'] else "background: #1F2937; border-left: 5px solid #10B981;"
-            
             st.markdown(f"""
-            <div style="{status_style} padding: 20px; border-radius: 10px;">
-                <h4 style="margin:0;">Target: {current_order['order_id']}</h4>
-                <p style="margin:5px 0;"><b>Customer:</b> {current_order['customer']}</p>
-                <p style="margin:0;"><b>Financial Status:</b> {current_order['status']}</p>
+            <div style="background: #1F2937; padding: 20px; border-radius: 10px; border-left: 5px solid {'#EF4444' if 'DISPUTED' in current_order['status'] else '#6366F1' if 'SUBMITTED' in current_order['status'] else '#10B981'};">
+                <h4 style="margin:0;">Order {current_order['order_id']}</h4>
+                <p style="margin:0;"><b>Current Status:</b> {current_order['status']}</p>
             </div>
             """, unsafe_allow_html=True)
             
             st.write("")
-            btn_label = "⚖️ COUNTER DISPUTE" if "DISPUTED" in current_order['status'] else "⚖️ COMPILE EVIDENCE"
-            if st.button(btn_label, use_container_width=True, type="primary"):
-                st.session_state['active_dossier'] = current_order
+            if "DISPUTED" in current_order['status']:
+                if st.button("🚀 SUBMIT COUNTER-EVIDENCE", type="primary", use_container_width=True):
+                    submit_counter_evidence(current_order['order_id'])
+            elif "SUBMITTED" in current_order['status']:
+                st.button("📄 VIEW SUBMISSION RECEIPT", use_container_width=True, disabled=True)
+            else:
+                st.button("🔍 REVIEW DATA", use_container_width=True)
 
         with col_action:
-            if 'active_dossier' in st.session_state:
-                order = st.session_state['active_dossier']
+            if "SUBMITTED" in current_order['status']:
+                st.success("✅ Evidence was successfully transmitted to the bank on this order.")
+                st.write("Current Status: **Awaiting Bank Decision (7-14 days)**")
+            else:
                 st.markdown(f"""
                     <div class="evidence-paper">
-                        <h3 style="text-align:center; text-decoration: underline;">LEGAL EXHIBIT: {order['order_id']}</h3>
-                        <p style="text-align:right;">Date: {datetime.datetime.now().strftime('%Y-%m-%d')}</p>
+                        <h3 style="text-align:center;">EXHIBIT: {current_order['order_id']}</h3>
+                        <p><strong>Customer:</strong> {current_order['customer']}</p>
                         <hr>
-                        <p><strong>RE:</strong> Dispute Counter-Evidence for {order['customer']}</p>
-                        <hr>
-                        <p><strong>SERVER ACCESS LOGS:</strong></p>
-                        <p>• Verified IP: 192.168.1.1</p>
-                        <p>• Access Method: Digital Portal</p>
-                        <p>• Consumption: 100% of Module 1</p>
+                        <p>• Device Fingerprint Match: Verified</p>
+                        <p>• Access Log: 100% Consumption</p>
                         <br>
-                        <div style="border: 2px solid #EF4444; padding: 10px; text-align: center; color: #EF4444; font-weight: bold;">
-                            READY FOR LEGAL SUBMISSION
-                        </div>
+                        <div style="border: 2px solid #374151; padding: 10px; text-align: center;">DRAFT EVIDENCE</div>
                     </div>
                 """, unsafe_allow_html=True)
-            else:
-                st.info("Select a transaction from the queue to start defense.")
 
         st.divider()
 
         # --- THE LEDGER ---
         st.subheader("📋 Order Ledger")
-        
         def style_rows(row):
-            if row['status'] == "⚠️ DISPUTED":
-                return ['background-color: rgba(239, 68, 68, 0.1)'] * len(row)
+            if row['status'] == "⚠️ DISPUTED": return ['background-color: rgba(239, 68, 68, 0.1)'] * len(row)
+            if row['status'] == "📤 SUBMITTED": return ['background-color: rgba(99, 102, 241, 0.1)'] * len(row)
             return [''] * len(row)
 
-        st.dataframe(
-            df[['order_id', 'created_at', 'customer', 'amount', 'status']].style.apply(style_rows, axis=1),
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(df[['order_id', 'created_at', 'customer', 'amount', 'status']].style.apply(style_rows, axis=1), use_container_width=True, hide_index=True)
