@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import time
-import random
+import requests # This is the tool that talks to the real internet
 
 # --- PAGE SETTINGS ---
 st.set_page_config(page_title="Creator OS", page_icon="🛡️", layout="wide")
@@ -11,89 +11,125 @@ st.set_page_config(page_title="Creator OS", page_icon="🛡️", layout="wide")
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: white; }
-    .success-box { padding: 20px; border: 1px solid #10B981; border-radius: 5px; color: #10B981; background-color: rgba(16, 185, 129, 0.1); }
-    .warning-box { padding: 20px; border: 1px solid #F59E0B; border-radius: 5px; color: #F59E0B; background-color: rgba(245, 158, 11, 0.1); }
+    .status-badge { color: #10B981; font-weight: bold; border: 1px solid #10B981; padding: 2px 8px; border-radius: 4px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR: THE ENGINE ROOM ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/9424/9424443.png", width=50)
-    st.title("Creator OS")
-    st.write("v1.5-Beta")
-    st.divider()
+# --- HELPER FUNCTION: GET REAL SHOPIFY DATA ---
+def fetch_shopify_orders(shop_url, access_token):
+    # This cleans the URL if the user adds "https://" or slashes
+    clean_url = shop_url.replace("https://", "").replace("/", "")
+    url = f"https://{clean_url}/admin/api/2023-10/orders.json?status=any&limit=5"
+    headers = {"X-Shopify-Access-Token": access_token}
     
-    st.subheader("🔌 Connect Your Store")
-    st.info("To see real data, enter your API details below.")
-    
-    # INPUT FIELDS FOR USER
-    store_url = st.text_input("Shopify Store URL", placeholder="mystore.myshopify.com")
-    api_key = st.text_input("Admin API Token", type="password", placeholder="shpat_xxxxxxxxxxx")
-    
-    if st.button("Connect & Sync", type="primary"):
-        if api_key and store_url:
-            with st.spinner("Connecting to Shopify..."):
-                time.sleep(2) # Simulating the connection time
-                st.session_state['is_connected'] = True
-                st.success("Successfully Connected!")
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return response.json().get("orders", [])
         else:
-            st.error("Please enter both URL and Key.")
-    
-    st.divider()
-    st.caption("🔒 Data is encrypted and never stored.")
+            return None # Connection failed
+    except:
+        return None
 
-# --- MAIN APP LOGIC ---
-
-# 1. CHECK IF CONNECTED
-if 'is_connected' not in st.session_state:
-    st.session_state['is_connected'] = False
-
-if st.session_state['is_connected']:
-    # === SHOW THE REAL DASHBOARD ===
-    
-    # Simulate fetching REAL data using the user's name
-    shop_name = store_url.split('.')[0].capitalize() if store_url else "My Store"
-    
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.title(f"🛡️ Protection Active: {shop_name}")
-        st.caption("Live Feed from Shopify Admin API")
-    with col2:
-        st.metric(label="Protected Revenue", value="$24,500", delta="Live Sync")
-
-    st.divider()
-    
-    # METRICS ROW
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Disputes Blocked", "12", "+2 today")
-    c2.metric("Chargeback Rate", "0.4%", "-1.2% vs avg")
-    c3.metric("Tax Liability (EU)", "€4,200", "Safe")
-    
-    st.divider()
-    
-    st.subheader("⚡ Live Transaction Monitor")
-    st.write(f"Listening to webhooks from **{store_url}**...")
-    
-    # Simulated Real Data Table
-    st.dataframe(pd.DataFrame({
-        "Order ID": ["#1054", "#1053", "#1052", "#1051"],
-        "Customer": ["alex@gmail.com", "sarah@yahoo.com", "mike@hotmail.com", "bot@scam.net"],
-        "Risk Score": ["Low", "Low", "Medium", "High (Blocked)"],
-        "Status": ["Fulfilled", "Fulfilled", "Flagged", "Refunded"]
-    }), use_container_width=True)
-
-else:
-    # === SHOW THE LANDING PAGE (BLURRED) ===
+# --- SIDEBAR ---
+with st.sidebar:
     st.title("🛡️ Creator OS")
+    st.caption("v2.0 Hybrid Engine")
+    st.divider()
     
-    st.markdown("""
-        <div class="warning-box">
-            <h3>⚠️ Waiting for Connection</h3>
-            <p>This is the Creator OS Revenue Shield. To activate the protection for your business, 
-            please enter your <strong>Shopify API Credentials</strong> in the sidebar on the left.</p>
-        </div>
-    """, unsafe_allow_html=True)
+    # THE MAGIC SWITCH
+    demo_mode = st.toggle("Simulate Demo Mode", value=True)
     
-    # Blurred/Fake background to show them what they are missing
-    st.write("")
-    st.image("https://placehold.co/1000x400/111827/222222?text=Dashboard+Locked+-+Connect+Store+To+Unlock", use_container_width=True)
+    st.divider()
+    
+    if not demo_mode:
+        st.subheader("🔌 Live Connection")
+        store_url = st.text_input("Store URL", placeholder="example.myshopify.com")
+        api_key = st.text_input("Admin Access Token", type="password")
+        connect_btn = st.button("Connect to Shopify", type="primary")
+    else:
+        st.info("Currently running in Simulation Mode. Switch off above to connect real data.")
+
+# --- MAIN DASHBOARD LOGIC ---
+
+# DEFAULT VALUES (Simulation)
+orders_data = []
+total_saved = "$14,250"
+revenue_delta = "+$1,200"
+dispute_win_rate = 78
+shop_name = "Simulation Store"
+connection_status = "Demo Active"
+
+# REAL DATA LOGIC
+if not demo_mode and 'connect_btn' in locals() and connect_btn:
+    with st.spinner("Connecting to Shopify API..."):
+        real_orders = fetch_shopify_orders(store_url, api_key)
+        
+        if real_orders:
+            # If connection works, we overwrite the fake data with REAL data
+            shop_name = store_url.split('.')[0].capitalize()
+            connection_status = "🟢 Live Connected"
+            st.toast("Sync Successful!", icon="✅")
+            
+            # Process real orders into our table format
+            for order in real_orders:
+                orders_data.append({
+                    "Order ID": f"#{order['order_number']}",
+                    "Customer": order['email'] or "No Email",
+                    "Total": f"${order['total_price']}",
+                    "Status": order['financial_status'].capitalize()
+                })
+            
+            # Update metrics based on real data (Simple logic for now)
+            total_saved = f"${len(real_orders) * 50}" # Fake calculation for prototype
+            
+        else:
+            st.error("Connection Failed. Check your URL and Access Token.")
+
+# IF DEMO MODE IS ON (Or no real data yet), LOAD FAKE DATA
+if not orders_data:
+    orders_data = [
+        {"Order ID": "#1054", "Customer": "alex@gmail.com", "Total": "$49.00", "Status": "Paid"},
+        {"Order ID": "#1053", "Customer": "sarah@yahoo.com", "Total": "$199.00", "Status": "Paid"},
+        {"Order ID": "#1052", "Customer": "bot@scam.net", "Total": "$499.00", "Status": "Voided"},
+    ]
+
+# --- UI RENDER ---
+
+# Header
+c1, c2 = st.columns([3, 1])
+with c1:
+    st.title(f"Revenuse Shield: {shop_name}")
+    st.caption(f"Status: {connection_status}")
+with c2:
+    st.metric("Total Protected", total_saved, revenue_delta)
+
+st.divider()
+
+# Metrics
+m1, m2, m3 = st.columns(3)
+m1.metric("Active Disputes", "3", "-2 from last week")
+m2.metric("Win Rate", f"{dispute_win_rate}%", "+5%")
+m3.metric("Global Tax Risk", "Low", "No Action Needed")
+
+st.markdown("### 📋 Recent Orders & Risk Analysis")
+
+# Convert list to dataframe for display
+df = pd.DataFrame(orders_data)
+
+# Show the table
+st.dataframe(
+    df,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Status": st.column_config.TextColumn(
+            "Payment Status",
+            help="Status from Shopify",
+            validate="^[a-zA-Z0-9_]+$"
+        ),
+    }
+)
+
+if demo_mode:
+    st.info("💡 Tip: Toggle 'Simulate Demo Mode' off in the sidebar to enter your Real API Keys.")
