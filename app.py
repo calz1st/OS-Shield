@@ -70,7 +70,7 @@ def update_dispute_status(order_id, new_status):
         st.rerun()
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Truth Metrics)
+# MODULE 1: REVENUE SHIELD (Total Protection)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
@@ -80,23 +80,23 @@ if page == "🛡️ Revenue Shield":
         df = pd.DataFrame(res.data)
         
         if not df.empty:
-            # --- UPDATED FINANCIAL LOGIC ---
-            # 1. Total Protected Revenue (Successful orders + Won disputes)
-            total_protected = df[df['status'].isin(['✅ SUCCESS', '✅ WON'])]['amount'].sum()
+            # --- UPDATED MATH LOGIC ---
+            # 1. Protected Revenue = Sum of ALL orders in the system
+            total_volume = df['amount'].sum()
             
-            # 2. Rescued Revenue (Only orders that have been won)
+            # 2. Rescued = Sum of orders officially WON
             rescued_val = df[df['status'] == '✅ WON']['amount'].sum()
             
-            # 3. Currently At Risk (Open disputes + Pending submissions)
+            # 3. Currently At Risk = Disputed + Submitted
             at_risk_df = df[df['status'].isin(['⚠️ DISPUTED', '📤 SUBMITTED'])]
             at_risk_val = at_risk_df['amount'].sum()
             
             # 1. TOP LEVEL STATS
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Protected Revenue", f"${total_protected:,.2f}", help="Sum of all successful and won orders")
-            c2.metric("Currently At Risk", f"${at_risk_val:,.2f}", delta=f"{len(at_risk_df)} Cases", delta_color="inverse")
-            c3.metric("Rescued from Disputes", f"${rescued_val:,.2f}", delta="Recovered")
-            c4.metric("Avg Order Value", f"${df['amount'].mean():,.2f}")
+            c1.metric("Protected Revenue", f"${total_volume:,.2f}", help="Total value of all transactions under system protection")
+            c2.metric("Currently At Risk", f"${at_risk_val:,.2f}", delta=f"{len(at_risk_df)} Active Cases", delta_color="inverse")
+            c3.metric("Rescued from Disputes", f"${rescued_val:,.2f}", delta="Shield Impact")
+            c4.metric("Total Transactions", len(df))
 
             st.divider()
 
