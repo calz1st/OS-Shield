@@ -70,7 +70,7 @@ def update_dispute_status(order_id, new_status):
         st.rerun()
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Corrected Math)
+# MODULE 1: REVENUE SHIELD (Truth Metrics)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
@@ -80,26 +80,23 @@ if page == "🛡️ Revenue Shield":
         df = pd.DataFrame(res.data)
         
         if not df.empty:
-            # --- UPDATED MATH LOGIC ---
-            # Successful = Original success + Won disputes
+            # --- UPDATED FINANCIAL LOGIC ---
+            # 1. Total Protected Revenue (Successful orders + Won disputes)
             total_protected = df[df['status'].isin(['✅ SUCCESS', '✅ WON'])]['amount'].sum()
             
-            # Rescued = Only orders that have been officially WON
+            # 2. Rescued Revenue (Only orders that have been won)
             rescued_val = df[df['status'] == '✅ WON']['amount'].sum()
             
-            # At Risk = Open disputes + Submitted cases (not yet won)
+            # 3. Currently At Risk (Open disputes + Pending submissions)
             at_risk_df = df[df['status'].isin(['⚠️ DISPUTED', '📤 SUBMITTED'])]
             at_risk_val = at_risk_df['amount'].sum()
             
-            # Dispute Count = Total active files
-            total_active_cases = len(at_risk_df)
-            
             # 1. TOP LEVEL STATS
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Protected Revenue", f"${total_protected:,.2f}")
-            c2.metric("Currently At Risk", f"${at_risk_val:,.2f}", delta=f"{total_active_cases} Open Cases", delta_color="inverse")
-            c3.metric("Rescued Revenue", f"${rescued_val:,.2f}", delta="Bank Settlements")
-            c4.metric("Avg Case Value", f"${at_risk_df['amount'].mean():,.2f}" if not at_risk_df.empty else "$0.00")
+            c1.metric("Protected Revenue", f"${total_protected:,.2f}", help="Sum of all successful and won orders")
+            c2.metric("Currently At Risk", f"${at_risk_val:,.2f}", delta=f"{len(at_risk_df)} Cases", delta_color="inverse")
+            c3.metric("Rescued from Disputes", f"${rescued_val:,.2f}", delta="Recovered")
+            c4.metric("Avg Order Value", f"${df['amount'].mean():,.2f}")
 
             st.divider()
 
@@ -155,8 +152,8 @@ if page == "🛡️ Revenue Shield":
                         <hr>
                         <p><strong>CUSTOMER:</strong> {current_order['customer']}</p>
                         <p><strong>VALUE:</strong> ${current_order['amount']}</p>
-                        <p><strong>CURRENT STATE:</strong> {current_order['status']}</p>
                         <hr>
+                        <h4>COMPLIANCE RECORD:</h4>
                         <p>• Verified Device Fingerprint Auth</p>
                         <p>• Delivery Success: 100%</p>
                         <br><br>
