@@ -29,9 +29,10 @@ st.markdown("""
     }
     .audit-log {
         background: rgba(31, 41, 55, 0.5); padding: 15px; border-radius: 8px;
-        font-size: 0.85rem; border: 1px solid #374151;
+        font-size: 0.85rem; border: 1px solid #374151; max-height: 300px; overflow-y: auto;
     }
-    .log-entry { margin-bottom: 5px; border-bottom: 1px solid #374151; padding-bottom: 5px; }
+    .log-entry { margin-bottom: 8px; border-bottom: 1px solid #374151; padding-bottom: 8px; display: flex; justify-content: space-between; }
+    .log-time { color: #9CA3AF; font-family: monospace; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -62,7 +63,7 @@ def submit_counter_evidence(order_id):
         st.rerun()
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Elite Version)
+# MODULE 1: REVENUE SHIELD (Smart Audit Edition)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
@@ -72,11 +73,10 @@ if page == "🛡️ Revenue Shield":
         df = pd.DataFrame(res.data)
         disputes = df[df['status'] == "⚠️ DISPUTED"]
         
-        # 1. TOP LEVEL STATS
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Revenue Protected", "$28,450")
         c2.metric("Pending Defense", len(disputes), delta="Urgent" if len(disputes) > 0 else None, delta_color="inverse")
-        c3.metric("Win Rate", "87%", "+2%")
+        c3.metric("Win Rate", "87%")
         c4.metric("Avg Loss Saved", "$342/mo")
 
         st.divider()
@@ -92,17 +92,33 @@ if page == "🛡️ Revenue Shield":
             
             current_order = df.iloc[selected_row]
             
-            # THE AUDIT LOG (New Feature)
+            # --- DYNAMIC AUDIT LOG GENERATOR ---
             st.write("---")
-            st.subheader("🕵️ Defense Audit Log")
-            st.markdown(f"""
-            <div class="audit-log">
-                <div class="log-entry">🕒 <b>{datetime.datetime.now().strftime('%H:%M')}</b> - Transaction detected via Stripe Webhook</div>
-                <div class="log-entry">🤖 <b>{datetime.datetime.now().strftime('%H:%M')}</b> - AI Risk Analysis: <span style="color:#10B981">Completed</span></div>
-                <div class="log-entry">👤 <b>{datetime.datetime.now().strftime('%H:%M')}</b> - Customer Access: Content Portal Login Verified</div>
-                <div class="log-entry">📄 <b>{datetime.datetime.now().strftime('%H:%M')}</b> - Evidence Dossier: Draft Generated</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.subheader(f"🕵️ Audit Trail: {current_order['order_id']}")
+            
+            # Convert string timestamp to datetime object
+            base_time = pd.to_datetime(current_order['created_at'])
+            
+            def log_row(time_off, text):
+                log_time = (base_time + datetime.timedelta(minutes=time_off)).strftime('%H:%M:%S')
+                return f'<div class="log-entry"><span class="log-text">{text}</span><span class="log-time">{log_time}</span></div>'
+
+            logs = []
+            logs.append(log_row(0, "✅ Transaction Initialized"))
+            logs.append(log_row(1, f"🤖 Risk Analysis Engine: {current_order['status']}"))
+            logs.append(log_row(5, "👤 User Portal Access: Session Started"))
+            
+            if "DISPUTED" in current_order['status']:
+                logs.append(log_row(120, "🚨 <b>Chargeback Alert</b>: Notification from Processor"))
+                logs.append(log_row(122, "📄 Evidence Dossier: Auto-Drafted"))
+            elif "SUBMITTED" in current_order['status']:
+                logs.append(log_row(120, "🚨 Chargeback Alert Received"))
+                logs.append(log_row(125, "🚀 <b>Counter-Evidence Submitted</b> by User"))
+                logs.append(log_row(126, "⏳ Status: Awaiting Bank Decision"))
+            else:
+                logs.append(log_row(15, "✅ Digital Assets Delivered Successfully"))
+
+            st.markdown(f'<div class="audit-log">{"".join(logs)}</div>', unsafe_allow_html=True)
             
             st.write("")
             if "DISPUTED" in current_order['status']:
@@ -112,20 +128,19 @@ if page == "🛡️ Revenue Shield":
                 st.button("📄 PREVIEW EVIDENCE", use_container_width=True)
 
         with col_action:
-            # THE DOSSIER
             st.markdown(f"""
                 <div class="evidence-paper">
                     <h3 style="text-align:center;">LEGAL EXHIBIT: {current_order['order_id']}</h3>
                     <p><strong>Merchant:</strong> Creator OS</p>
                     <p><strong>Customer:</strong> {current_order['customer']}</p>
                     <hr>
-                    <p><strong>RECOVERY ANALYSIS:</strong></p>
-                    <p>• Device: Mac OS / Chrome</p>
-                    <p>• Usage: 100% Course Completion</p>
-                    <p>• IP Match: Verified (Newcastle, UK)</p>
+                    <p><strong>INTERNAL LOG SUMMARY:</strong></p>
+                    <p>• Device: Mobile / iOS</p>
+                    <p>• Usage: Active Session</p>
+                    <p>• Risk Result: {current_order['status']}</p>
                     <br>
-                    <div style="border: 2px solid {'#EF4444' if 'DISPUTED' in current_order['status'] else '#374151'}; padding: 10px; text-align: center; font-weight: bold;">
-                        {'URGENT: BANK RESPONSE NEEDED' if 'DISPUTED' in current_order['status'] else 'DRAFT READY'}
+                    <div style="border: 2px solid {'#EF4444' if 'DISPUTED' in current_order['status'] else '#6366F1' if 'SUBMITTED' in current_order['status'] else '#374151'}; padding: 10px; text-align: center; font-weight: bold;">
+                        {current_order['status'].upper()}
                     </div>
                 </div>
             """, unsafe_allow_html=True)
