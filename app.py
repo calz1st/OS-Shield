@@ -37,12 +37,7 @@ st.markdown("""
     @media print {
         body * { visibility: hidden !important; }
         #printable-area, #printable-area * { visibility: visible !important; }
-        #printable-area { 
-            position: absolute !important; 
-            left: 0 !important; top: 0 !important; 
-            width: 100% !important;
-            background-color: white !important;
-        }
+        #printable-area { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; background-color: white !important; }
     }
 
     .audit-log {
@@ -64,7 +59,7 @@ with st.sidebar:
             "order_id": f"#{datetime.datetime.now().strftime('%M%S')}",
             "customer": f"user_{random.randint(10,99)}@vibe.io",
             "amount": float(random.randint(49, 999)),
-            "status": "⚠️ DISPUTED" if is_dispute else "Low Risk"
+            "status": "⚠️ DISPUTED" if is_dispute else "✅ SUCCESS"
         }
         supabase.table("orders").insert(new_data).execute()
         st.rerun()
@@ -78,13 +73,12 @@ def submit_counter_evidence(order_id):
         st.rerun()
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Ledger Top Edition)
+# MODULE 1: REVENUE SHIELD (Segmented Ledger)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
     
     if db_connected:
-        # Fetch the latest 50 orders
         res = supabase.table("orders").select("*").order("created_at", desc=True).limit(50).execute()
         df = pd.DataFrame(res.data)
         
@@ -92,47 +86,56 @@ if page == "🛡️ Revenue Shield":
             # 1. TOP METRICS
             disputes = df[df['status'] == "⚠️ DISPUTED"]
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Protected Revenue", f"${df['amount'].sum():,.0f}")
-            c2.metric("Active Disputes", len(disputes), delta_color="inverse")
+            c1.metric("Total Revenue", f"${df[df['status'] != '⚠️ DISPUTED']['amount'].sum():,.0f}")
+            c2.metric("At Risk (Disputes)", len(disputes), delta_color="inverse")
             c3.metric("Win Rate", "87%")
-            c4.metric("Risk Level", "Stable")
+            c4.metric("Clean Orders", len(df) - len(disputes))
 
             st.divider()
 
-            # --- SECTION 1: THE LEDGER (NOW AT THE TOP) ---
-            st.subheader("📋 Order Ledger (Latest History)")
-            def highlight_disputes(row):
-                return ['background-color: rgba(239, 68, 68, 0.1)'] * len(row) if "DISPUTED" in row['status'] else [''] * len(row)
+            # --- SEGMENTED LEDGER ---
+            st.subheader("📋 Order Ledger")
+            
+            # Filter Toggles
+            filter_col = st.radio("Filter Ledger View:", ["All Orders", "Disputes Only", "Successful Only"], horizontal=True)
+            
+            if filter_col == "Disputes Only":
+                display_df = df[df['status'].isin(["⚠️ DISPUTED", "📤 SUBMITTED"])]
+            elif filter_col == "Successful Only":
+                display_df = df[df['status'] == "✅ SUCCESS"]
+            else:
+                display_df = df
+
+            def highlight_status(row):
+                if "DISPUTED" in row['status']:
+                    return ['background-color: rgba(239, 68, 68, 0.15); color: #FCA5A5;'] * len(row)
+                elif "SUBMITTED" in row['status']:
+                    return ['background-color: rgba(99, 102, 241, 0.1); color: #A5B4FC;'] * len(row)
+                else:
+                    return ['color: #10B981;'] * len(row) # Success color
 
             st.dataframe(
-                df[['order_id', 'created_at', 'customer', 'amount', 'status']].style.apply(highlight_disputes, axis=1),
+                display_df[['order_id', 'created_at', 'customer', 'amount', 'status']].style.apply(highlight_status, axis=1),
                 use_container_width=True,
                 hide_index=True,
                 column_config={
                     "order_id": "Order #",
                     "amount": st.column_config.NumberColumn("Total", format="$%.2f"),
+                    "status": st.column_config.SelectboxColumn("Status", options=["✅ SUCCESS", "⚠️ DISPUTED", "📤 SUBMITTED"]),
                     "created_at": st.column_config.DatetimeColumn("Date", format="D MMM, HH:mm"),
                 }
             )
 
             st.divider()
 
-            # --- SECTION 2: ACTION QUEUE & DOSSIER (NOW AT THE BOTTOM) ---
+            # --- ACTION QUEUE ---
             col_left, col_right = st.columns([1.3, 1])
 
             with col_left:
                 st.subheader("🎯 Action Queue")
-                
-                # Sorting so disputed ones appear first in the dropdown for priority
+                # Dropdown still allows picking any order for review, but defaults to sorted priorities
                 df_sorted = df.sort_values(by='status', ascending=False) 
-                
-                selected_id = st.selectbox(
-                    "Select Order to Review/Defend", 
-                    options=df_sorted['order_id'].tolist(),
-                    help="Matches the Order # from the ledger above."
-                )
-                
-                # Extract selected order details
+                selected_id = st.selectbox("Select Order to Review", options=df_sorted['order_id'].tolist())
                 current_order = df[df['order_id'] == selected_id].iloc[0]
                 
                 c_btn1, c_btn2 = st.columns(2)
@@ -142,22 +145,15 @@ if page == "🛡️ Revenue Shield":
                             submit_counter_evidence(current_order['order_id'])
                     else:
                         st.button("🔍 SCAN FOR FRAUD", use_container_width=True)
-                
                 with c_btn2:
                     if st.button("📥 EXPORT DOSSIER (PDF)", use_container_width=True):
                         st.components.v1.html("<script>setTimeout(function(){ window.print(); }, 300);</script>", height=0)
 
                 st.write("---")
                 st.subheader(f"🕵️ Audit Trail: {current_order['order_id']}")
-                st.markdown(f"""
-                <div class="audit-log">
-                    ✅ <b>Order {current_order['order_id']}</b> Initialized<br>
-                    🤖 AI Risk Scan: {current_order['status']}<br>
-                    👤 Customer Access: Verified via IP Auth
-                </div>""", unsafe_allow_html=True)
+                st.markdown(f'<div class="audit-log">✅ Order Initialized<br>🤖 Status: {current_order["status"]}</div>', unsafe_allow_html=True)
 
             with col_right:
-                # THE DOSSIER
                 st.markdown(f"""
                     <div id="printable-area" class="evidence-paper">
                         <h2 style="text-align:center; text-decoration: underline;">LEGAL EVIDENCE</h2>
@@ -167,23 +163,10 @@ if page == "🛡️ Revenue Shield":
                         <p><strong>VALUE:</strong> ${current_order['amount']}</p>
                         <p><strong>SYSTEM STATUS:</strong> {current_order['status']}</p>
                         <hr>
-                        <h4>COMPLIANCE LOGS:</h4>
-                        <p>• Device Fingerprint Auth: OK</p>
-                        <p>• Digital Asset Delivery: 100%</p>
-                        <p>• Usage Time: 14 Minutes</p>
+                        <h4>SYSTEM AUDIT:</h4>
+                        <p>• Device Auth: OK</p>
+                        <p>• Usage: 100% Downloaded</p>
                         <br><br>
-                        <div style="border: 2px solid black; padding: 10px; text-align: center; font-weight: bold;">
-                            OFFICIAL AUDIT RECORD
-                        </div>
+                        <div style="border: 2px solid black; padding: 10px; text-align: center; font-weight: bold;">OFFICIAL AUDIT RECORD</div>
                     </div>
                 """, unsafe_allow_html=True)
-
-        else:
-            st.info("No orders found. Click 'Simulate' in the sidebar to begin.")
-
-# ==========================================
-# MODULE 2: GHOST HUNTER
-# ==========================================
-elif page == "👻 Ghost Hunter":
-    st.title("👻 Ghost Hunter AI")
-    st.info("Ready to begin Module 2? We can start building the churn prediction tracker next.")
