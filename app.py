@@ -73,7 +73,7 @@ def submit_counter_evidence(order_id):
         st.rerun()
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Segmented Ledger)
+# MODULE 1: REVENUE SHIELD (Action-Focused)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
@@ -86,54 +86,53 @@ if page == "🛡️ Revenue Shield":
             # 1. TOP METRICS
             disputes = df[df['status'] == "⚠️ DISPUTED"]
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Total Revenue", f"${df[df['status'] != '⚠️ DISPUTED']['amount'].sum():,.0f}")
-            c2.metric("At Risk (Disputes)", len(disputes), delta_color="inverse")
+            c1.metric("Total Protected", f"${df[df['status'] != '⚠️ DISPUTED']['amount'].sum():,.0f}")
+            c2.metric("Action Required", len(disputes), delta="🚨" if len(disputes) > 0 else None, delta_color="inverse")
             c3.metric("Win Rate", "87%")
-            c4.metric("Clean Orders", len(df) - len(disputes))
+            c4.metric("Active Defense", "Shield Engaged")
 
             st.divider()
 
-            # --- SEGMENTED LEDGER ---
+            # --- LEDGER WITH DUAL FILTER ---
             st.subheader("📋 Order Ledger")
             
-            # Filter Toggles
-            filter_col = st.radio("Filter Ledger View:", ["All Orders", "Disputes Only", "Successful Only"], horizontal=True)
+            # Simplified Radio Toggles
+            filter_view = st.radio("Display Mode:", ["All Orders", "Disputes Only"], horizontal=True)
             
-            if filter_col == "Disputes Only":
+            if filter_view == "Disputes Only":
                 display_df = df[df['status'].isin(["⚠️ DISPUTED", "📤 SUBMITTED"])]
-            elif filter_col == "Successful Only":
-                display_df = df[df['status'] == "✅ SUCCESS"]
+                if display_df.empty:
+                    st.info("No active disputes found. Your revenue is fully protected!")
             else:
                 display_df = df
 
             def highlight_status(row):
                 if "DISPUTED" in row['status']:
-                    return ['background-color: rgba(239, 68, 68, 0.15); color: #FCA5A5;'] * len(row)
+                    return ['background-color: rgba(239, 68, 68, 0.15); color: #FCA5A5; font-weight: bold;'] * len(row)
                 elif "SUBMITTED" in row['status']:
                     return ['background-color: rgba(99, 102, 241, 0.1); color: #A5B4FC;'] * len(row)
                 else:
-                    return ['color: #10B981;'] * len(row) # Success color
+                    return ['color: #10B981;'] * len(row)
 
-            st.dataframe(
-                display_df[['order_id', 'created_at', 'customer', 'amount', 'status']].style.apply(highlight_status, axis=1),
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "order_id": "Order #",
-                    "amount": st.column_config.NumberColumn("Total", format="$%.2f"),
-                    "status": st.column_config.SelectboxColumn("Status", options=["✅ SUCCESS", "⚠️ DISPUTED", "📤 SUBMITTED"]),
-                    "created_at": st.column_config.DatetimeColumn("Date", format="D MMM, HH:mm"),
-                }
-            )
+            if not display_df.empty:
+                st.dataframe(
+                    display_df[['order_id', 'created_at', 'customer', 'amount', 'status']].style.apply(highlight_status, axis=1),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "order_id": "Order #",
+                        "amount": st.column_config.NumberColumn("Total", format="$%.2f"),
+                        "created_at": st.column_config.DatetimeColumn("Date", format="D MMM, HH:mm"),
+                    }
+                )
 
             st.divider()
 
-            # --- ACTION QUEUE ---
+            # --- ACTION CENTER ---
             col_left, col_right = st.columns([1.3, 1])
 
             with col_left:
                 st.subheader("🎯 Action Queue")
-                # Dropdown still allows picking any order for review, but defaults to sorted priorities
                 df_sorted = df.sort_values(by='status', ascending=False) 
                 selected_id = st.selectbox("Select Order to Review", options=df_sorted['order_id'].tolist())
                 current_order = df[df['order_id'] == selected_id].iloc[0]
@@ -151,7 +150,7 @@ if page == "🛡️ Revenue Shield":
 
                 st.write("---")
                 st.subheader(f"🕵️ Audit Trail: {current_order['order_id']}")
-                st.markdown(f'<div class="audit-log">✅ Order Initialized<br>🤖 Status: {current_order["status"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="audit-log">✅ Order Initialized<br>🤖 AI Analysis: {current_order["status"]}</div>', unsafe_allow_html=True)
 
             with col_right:
                 st.markdown(f"""
@@ -161,12 +160,12 @@ if page == "🛡️ Revenue Shield":
                         <hr>
                         <p><strong>CUSTOMER:</strong> {current_order['customer']}</p>
                         <p><strong>VALUE:</strong> ${current_order['amount']}</p>
-                        <p><strong>SYSTEM STATUS:</strong> {current_order['status']}</p>
+                        <p><strong>STATUS:</strong> {current_order['status']}</p>
                         <hr>
-                        <h4>SYSTEM AUDIT:</h4>
-                        <p>• Device Auth: OK</p>
-                        <p>• Usage: 100% Downloaded</p>
+                        <h4>COMPLIANCE SUMMARY:</h4>
+                        <p>• Verified Device Hash</p>
+                        <p>• Delivery Confirmation: 100%</p>
                         <br><br>
-                        <div style="border: 2px solid black; padding: 10px; text-align: center; font-weight: bold;">OFFICIAL AUDIT RECORD</div>
+                        <div style="border: 2px solid black; padding: 10px; text-align: center; font-weight: bold;">OFFICIAL SYSTEM RECORD</div>
                     </div>
                 """, unsafe_allow_html=True)
