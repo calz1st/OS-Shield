@@ -2,134 +2,144 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import time
-import requests # This is the tool that talks to the real internet
+import random
 
-# --- PAGE SETTINGS ---
+# --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Creator OS", page_icon="🛡️", layout="wide")
 
-# --- CSS STYLING ---
+# --- CSS STYLING (Professional Dark Mode) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: white; }
-    .status-badge { color: #10B981; font-weight: bold; border: 1px solid #10B981; padding: 2px 8px; border-radius: 4px; }
+    
+    /* Health Score Colors */
+    .health-good { color: #10B981; font-weight: bold; }
+    .health-risk { color: #F59E0B; font-weight: bold; }
+    .health-critical { color: #EF4444; font-weight: bold; }
+    
+    /* Card Styling */
+    .metric-card {
+        background-color: #1F2937;
+        padding: 20px;
+        border-radius: 10px;
+        border-left: 5px solid #10B981;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- HELPER FUNCTION: GET REAL SHOPIFY DATA ---
-def fetch_shopify_orders(shop_url, access_token):
-    # This cleans the URL if the user adds "https://" or slashes
-    clean_url = shop_url.replace("https://", "").replace("/", "")
-    url = f"https://{clean_url}/admin/api/2023-10/orders.json?status=any&limit=5"
-    headers = {"X-Shopify-Access-Token": access_token}
-    
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            return response.json().get("orders", [])
-        else:
-            return None # Connection failed
-    except:
-        return None
-
-# --- SIDEBAR ---
+# --- SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.title("🛡️ Creator OS")
-    st.caption("v2.0 Hybrid Engine")
+    st.caption("v2.1 Demo Suite")
     st.divider()
     
-    # THE MAGIC SWITCH
-    demo_mode = st.toggle("Simulate Demo Mode", value=True)
+    # NAVIGATION MENU
+    page = st.radio("Select Module", ["🛡️ Revenue Shield", "👻 Ghost Hunter (Retention)"])
     
     st.divider()
+    st.info("Simulation Mode: ON")
+    st.caption("Running on synthetic data.")
+
+# ==========================================
+# MODULE 1: REVENUE SHIELD (The Original)
+# ==========================================
+if page == "🛡️ Revenue Shield":
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.title("Revenue Shield")
+        st.caption("Active Protection • Dispute Auto-Response • Tax Compliance")
+    with col2:
+        st.metric("ROI Multiplier", "12.4x", "Active")
+    st.divider()
+
+    # Top Metrics
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Disputes Defended", "14", "+2 Today")
+    m2.metric("Revenue Saved", "$14,250", "+$1,200")
+    m3.metric("Tax Risk (DE)", "High", "Action Required")
     
-    if not demo_mode:
-        st.subheader("🔌 Live Connection")
-        store_url = st.text_input("Store URL", placeholder="example.myshopify.com")
-        api_key = st.text_input("Admin Access Token", type="password")
-        connect_btn = st.button("Connect to Shopify", type="primary")
-    else:
-        st.info("Currently running in Simulation Mode. Switch off above to connect real data.")
+    st.subheader("Recent Defense Logs")
+    shield_data = pd.DataFrame([
+        {"Time": "10:42 AM", "Event": "Auto-Dispute (#994)", "Outcome": "Evidence Sent"},
+        {"Time": "09:15 AM", "Event": "Fraud Block (IP 192..)", "Outcome": "Blocked"},
+        {"Time": "Yesterday", "Event": "VAT Threshold Alert", "Outcome": "Flagged"},
+    ])
+    st.dataframe(shield_data, use_container_width=True, hide_index=True)
+    
+    if st.button("Generate Evidence Dossier (Simulation)"):
+        st.success("Generating PDF for Dispute #994...")
+        time.sleep(1)
+        st.markdown("✅ **Evidence Submitted to Stripe.**")
 
-# --- MAIN DASHBOARD LOGIC ---
+# ==========================================
+# MODULE 2: GHOST HUNTER (The New Feature)
+# ==========================================
+elif page == "👻 Ghost Hunter (Retention)":
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.title("Ghost Hunter AI")
+        st.caption("Predictive Churn Detection • Auto-Reactivation")
+    with col2:
+        st.metric("Churn Risk", "High", "+4 Members at Risk", delta_color="inverse")
+    
+    st.divider()
 
-# DEFAULT VALUES (Simulation)
-orders_data = []
-total_saved = "$14,250"
-revenue_delta = "+$1,200"
-dispute_win_rate = 78
-shop_name = "Simulation Store"
-connection_status = "Demo Active"
+    # The Logic: Explain what's happening
+    st.info("🤖 **AI Analysis:** Scanned 450 members. Detected **5 High-Risk users** (Ghosting for >7 days).")
 
-# REAL DATA LOGIC
-if not demo_mode and 'connect_btn' in locals() and connect_btn:
-    with st.spinner("Connecting to Shopify API..."):
-        real_orders = fetch_shopify_orders(store_url, api_key)
-        
-        if real_orders:
-            # If connection works, we overwrite the fake data with REAL data
-            shop_name = store_url.split('.')[0].capitalize()
-            connection_status = "🟢 Live Connected"
-            st.toast("Sync Successful!", icon="✅")
-            
-            # Process real orders into our table format
-            for order in real_orders:
-                orders_data.append({
-                    "Order ID": f"#{order['order_number']}",
-                    "Customer": order['email'] or "No Email",
-                    "Total": f"${order['total_price']}",
-                    "Status": order['financial_status'].capitalize()
-                })
-            
-            # Update metrics based on real data (Simple logic for now)
-            total_saved = f"${len(real_orders) * 50}" # Fake calculation for prototype
-            
-        else:
-            st.error("Connection Failed. Check your URL and Access Token.")
-
-# IF DEMO MODE IS ON (Or no real data yet), LOAD FAKE DATA
-if not orders_data:
-    orders_data = [
-        {"Order ID": "#1054", "Customer": "alex@gmail.com", "Total": "$49.00", "Status": "Paid"},
-        {"Order ID": "#1053", "Customer": "sarah@yahoo.com", "Total": "$199.00", "Status": "Paid"},
-        {"Order ID": "#1052", "Customer": "bot@scam.net", "Total": "$499.00", "Status": "Voided"},
+    # MOCK DATA: AT-RISK MEMBERS
+    # We create a table of people who are about to quit
+    risk_data = [
+        {"User": "@CryptoKing_99", "Last Active": "12 Days Ago", "Health Score": 15, "LTV": "$450"},
+        {"User": "Sarah_Designs", "Last Active": "8 Days Ago", "Health Score": 22, "LTV": "$120"},
+        {"User": "MikeTrading", "Last Active": "9 Days Ago", "Health Score": 18, "LTV": "$890"},
+        {"User": "Anon_User22", "Last Active": "15 Days Ago", "Health Score": 10, "LTV": "$50"},
+        {"User": "J_Doe_88", "Last Active": "6 Days Ago", "Health Score": 45, "LTV": "$200"},
     ]
+    df_risk = pd.DataFrame(risk_data)
 
-# --- UI RENDER ---
+    # Display the "Kill List" (People leaving)
+    st.subheader("⚠️ At-Risk Member List")
+    
+    # We use a special Column Config to show a Progress Bar for "Health Score"
+    st.dataframe(
+        df_risk,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Health Score": st.column_config.ProgressColumn(
+                "Health Score (0-100)",
+                help="Lower score means higher chance of quitting.",
+                format="%d",
+                min_value=0,
+                max_value=100,
+            ),
+             "User": st.column_config.TextColumn("Member Name", help="Discord/Whop Username"),
+        }
+    )
 
-# Header
-c1, c2 = st.columns([3, 1])
-with c1:
-    st.title(f"Revenuse Shield: {shop_name}")
-    st.caption(f"Status: {connection_status}")
-with c2:
-    st.metric("Total Protected", total_saved, revenue_delta)
+    st.divider()
 
-st.divider()
+    # THE INTERACTIVE ACTION
+    st.subheader("⚡ Automated Recovery Actions")
+    
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        st.markdown("### 🎁 The 'Soft Nudge'")
+        st.write("Send a personalized DM: *'Hey [Name], noticed you've been gone. Here is a free resource pack to get you back on track.'*")
+        if st.button("🚀 Auto-Send DMs (5 Users)"):
+            with st.status("Engaging Ghost Hunter Protocol...", expanded=True) as status:
+                st.write("📝 Generating personalized AI messages...")
+                time.sleep(1)
+                st.write("📨 Sending to Discord API...")
+                time.sleep(1)
+                st.write("✅ Messages Delivered.")
+                status.update(label="Recovery Complete!", state="complete", expanded=False)
+            st.balloons() # Fun animation for success
 
-# Metrics
-m1, m2, m3 = st.columns(3)
-m1.metric("Active Disputes", "3", "-2 from last week")
-m2.metric("Win Rate", f"{dispute_win_rate}%", "+5%")
-m3.metric("Global Tax Risk", "Low", "No Action Needed")
-
-st.markdown("### 📋 Recent Orders & Risk Analysis")
-
-# Convert list to dataframe for display
-df = pd.DataFrame(orders_data)
-
-# Show the table
-st.dataframe(
-    df,
-    use_container_width=True,
-    hide_index=True,
-    column_config={
-        "Status": st.column_config.TextColumn(
-            "Payment Status",
-            help="Status from Shopify",
-            validate="^[a-zA-Z0-9_]+$"
-        ),
-    }
-)
-
-if demo_mode:
-    st.info("💡 Tip: Toggle 'Simulate Demo Mode' off in the sidebar to enter your Real API Keys.")
+    with c2:
+        st.markdown("### 🏷️ The 'Downsell' Offer")
+        st.write("For users with Score < 15: Offer a **50% discount** for next month instead of cancelling.")
+        if st.button("💸 Activate Discount Sequence"):
+            st.toast("Discount offers sent to 2 Critical users.", icon="🏷️")
