@@ -54,7 +54,8 @@ st.markdown("""
 
 # --- 3. SIDEBAR & SIMULATION ---
 with st.sidebar:
-    st.title("🛡️ Creator OS")
+    st.image("https://cdn-icons-png.flaticon.com/512/9424/9424443.png", width=60)
+    st.title("Creator OS")
     page = st.radio("Navigation", ["🛡️ Revenue Shield", "👻 Ghost Hunter", "📊 Unified Data"])
     st.divider()
     if db_connected and st.button("➕ Simulate Live Transaction"):
@@ -77,7 +78,7 @@ def submit_counter_evidence(order_id):
         st.rerun()
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Synced Edition)
+# MODULE 1: REVENUE SHIELD (Ledger Top Edition)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
@@ -98,23 +99,40 @@ if page == "🛡️ Revenue Shield":
 
             st.divider()
 
-            # --- ACTION QUEUE & DOSSIER ---
+            # --- SECTION 1: THE LEDGER (NOW AT THE TOP) ---
+            st.subheader("📋 Order Ledger (Latest History)")
+            def highlight_disputes(row):
+                return ['background-color: rgba(239, 68, 68, 0.1)'] * len(row) if "DISPUTED" in row['status'] else [''] * len(row)
+
+            st.dataframe(
+                df[['order_id', 'created_at', 'customer', 'amount', 'status']].style.apply(highlight_disputes, axis=1),
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "order_id": "Order #",
+                    "amount": st.column_config.NumberColumn("Total", format="$%.2f"),
+                    "created_at": st.column_config.DatetimeColumn("Date", format="D MMM, HH:mm"),
+                }
+            )
+
+            st.divider()
+
+            # --- SECTION 2: ACTION QUEUE & DOSSIER (NOW AT THE BOTTOM) ---
             col_left, col_right = st.columns([1.3, 1])
 
             with col_left:
                 st.subheader("🎯 Action Queue")
                 
-                # SYNC FIX: We map the Order ID directly to the selection
-                # We sort the dataframe so disputed ones appear first in the dropdown
+                # Sorting so disputed ones appear first in the dropdown for priority
                 df_sorted = df.sort_values(by='status', ascending=False) 
                 
                 selected_id = st.selectbox(
-                    "Select Order to Review", 
+                    "Select Order to Review/Defend", 
                     options=df_sorted['order_id'].tolist(),
-                    help="Matches the Order ID in your ledger below."
+                    help="Matches the Order # from the ledger above."
                 )
                 
-                # Extract the full record for the selected ID
+                # Extract selected order details
                 current_order = df[df['order_id'] == selected_id].iloc[0]
                 
                 c_btn1, c_btn2 = st.columns(2)
@@ -130,12 +148,12 @@ if page == "🛡️ Revenue Shield":
                         st.components.v1.html("<script>setTimeout(function(){ window.print(); }, 300);</script>", height=0)
 
                 st.write("---")
-                st.subheader("🕵️ Audit Trail")
+                st.subheader(f"🕵️ Audit Trail: {current_order['order_id']}")
                 st.markdown(f"""
                 <div class="audit-log">
                     ✅ <b>Order {current_order['order_id']}</b> Initialized<br>
                     🤖 AI Risk Scan: {current_order['status']}<br>
-                    👤 Customer Access: Verified via IP
+                    👤 Customer Access: Verified via IP Auth
                 </div>""", unsafe_allow_html=True)
 
             with col_right:
@@ -160,30 +178,12 @@ if page == "🛡️ Revenue Shield":
                     </div>
                 """, unsafe_allow_html=True)
 
-            st.divider()
-
-            # --- THE LEDGER ---
-            st.subheader("📋 Order Ledger")
-            # Style disputed rows so they stand out in the ledger
-            def highlight_disputes(row):
-                return ['background-color: rgba(239, 68, 68, 0.1)'] * len(row) if "DISPUTED" in row['status'] else [''] * len(row)
-
-            st.dataframe(
-                df[['order_id', 'created_at', 'customer', 'amount', 'status']].style.apply(highlight_disputes, axis=1),
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "order_id": "Order #",
-                    "amount": st.column_config.NumberColumn("Total", format="$%.2f"),
-                    "created_at": st.column_config.DatetimeColumn("Date", format="D MMM, HH:mm"),
-                }
-            )
         else:
             st.info("No orders found. Click 'Simulate' in the sidebar to begin.")
 
 # ==========================================
-# MODULE 2: GHOST HUNTER (Retention)
+# MODULE 2: GHOST HUNTER
 # ==========================================
 elif page == "👻 Ghost Hunter":
     st.title("👻 Ghost Hunter AI")
-    st.info("Module 1 is locked in. Ready to start building the Churn Predictor here?")
+    st.info("Ready to begin Module 2? We can start building the churn prediction tracker next.")
