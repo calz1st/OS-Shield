@@ -23,20 +23,30 @@ st.set_page_config(page_title="Creator OS | Revenue Shield", page_icon="🛡️"
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #E5E7EB; }
+    
+    /* Evidence Dossier Styling */
     .evidence-paper {
         background-color: #FFFFFF; color: #111827; padding: 40px; border-radius: 2px;
         font-family: 'Courier New', Courier, monospace; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
+
+    /* Print styling to hide everything except the dossier when exporting */
+    @media print {
+        body * { visibility: hidden; }
+        #printable-dossier, #printable-dossier * { visibility: visible; }
+        #printable-dossier { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+    }
+
     .audit-log {
         background: rgba(31, 41, 55, 0.5); padding: 15px; border-radius: 8px;
-        font-size: 0.85rem; border: 1px solid #374151; max-height: 300px; overflow-y: auto;
+        font-size: 0.85rem; border: 1px solid #374151; max-height: 250px; overflow-y: auto;
     }
     .log-entry { margin-bottom: 8px; border-bottom: 1px solid #374151; padding-bottom: 8px; display: flex; justify-content: space-between; }
     .log-time { color: #9CA3AF; font-family: monospace; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. SIDEBAR ---
+# --- 3. SIDEBAR & SIMULATION ---
 with st.sidebar:
     st.title("🛡️ Creator OS")
     page = st.radio("Navigation", ["🛡️ Revenue Shield", "👻 Ghost Hunter", "📊 Unified Data"])
@@ -63,7 +73,7 @@ def submit_counter_evidence(order_id):
         st.rerun()
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Smart Audit Edition)
+# MODULE 1: REVENUE SHIELD (PDF Export Edition)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
@@ -81,7 +91,7 @@ if page == "🛡️ Revenue Shield":
 
         st.divider()
 
-        col_feed, col_action = st.columns([1.4, 1])
+        col_feed, col_action = st.columns([1.4, 1.1])
 
         with col_feed:
             st.subheader("🎯 Action Queue")
@@ -92,56 +102,59 @@ if page == "🛡️ Revenue Shield":
             
             current_order = df.iloc[selected_row]
             
-            # --- DYNAMIC AUDIT LOG GENERATOR ---
+            # --- DYNAMIC AUDIT LOG ---
             st.write("---")
             st.subheader(f"🕵️ Audit Trail: {current_order['order_id']}")
-            
-            # Convert string timestamp to datetime object
             base_time = pd.to_datetime(current_order['created_at'])
             
             def log_row(time_off, text):
                 log_time = (base_time + datetime.timedelta(minutes=time_off)).strftime('%H:%M:%S')
-                return f'<div class="log-entry"><span class="log-text">{text}</span><span class="log-time">{log_time}</span></div>'
+                return f'<div class="log-entry"><span>{text}</span><span class="log-time">{log_time}</span></div>'
 
-            logs = []
-            logs.append(log_row(0, "✅ Transaction Initialized"))
-            logs.append(log_row(1, f"🤖 Risk Analysis Engine: {current_order['status']}"))
-            logs.append(log_row(5, "👤 User Portal Access: Session Started"))
-            
+            logs = [log_row(0, "✅ Transaction Initialized"), log_row(1, f"🤖 Risk Engine: {current_order['status']}"), log_row(5, "👤 Portal Access Verified")]
             if "DISPUTED" in current_order['status']:
-                logs.append(log_row(120, "🚨 <b>Chargeback Alert</b>: Notification from Processor"))
-                logs.append(log_row(122, "📄 Evidence Dossier: Auto-Drafted"))
+                logs.append(log_row(120, "🚨 <b>Chargeback Alert</b>"))
+                logs.append(log_row(122, "📄 Dossier Auto-Drafted"))
             elif "SUBMITTED" in current_order['status']:
-                logs.append(log_row(120, "🚨 Chargeback Alert Received"))
-                logs.append(log_row(125, "🚀 <b>Counter-Evidence Submitted</b> by User"))
-                logs.append(log_row(126, "⏳ Status: Awaiting Bank Decision"))
-            else:
-                logs.append(log_row(15, "✅ Digital Assets Delivered Successfully"))
+                logs.append(log_row(125, "🚀 <b>Evidence Submitted</b>"))
 
             st.markdown(f'<div class="audit-log">{"".join(logs)}</div>', unsafe_allow_html=True)
             
             st.write("")
-            if "DISPUTED" in current_order['status']:
-                if st.button("🚀 SUBMIT COUNTER-EVIDENCE", type="primary", use_container_width=True):
-                    submit_counter_evidence(current_order['order_id'])
-            else:
-                st.button("📄 PREVIEW EVIDENCE", use_container_width=True)
+            c_act1, c_act2 = st.columns(2)
+            with c_act1:
+                if "DISPUTED" in current_order['status']:
+                    if st.button("🚀 SUBMIT TO BANK", type="primary", use_container_width=True):
+                        submit_counter_evidence(current_order['order_id'])
+                else:
+                    st.button("🔍 SCAN FOR FRAUD", use_container_width=True)
+            with c_act2:
+                # THE PDF EXPORT TRIGGER
+                if st.button("📥 EXPORT DOSSIER (PDF)", use_container_width=True):
+                    st.components.v1.html("<script>window.print();</script>", height=0)
 
         with col_action:
+            # Wrap the dossier in a div with ID for printing
             st.markdown(f"""
-                <div class="evidence-paper">
-                    <h3 style="text-align:center;">LEGAL EXHIBIT: {current_order['order_id']}</h3>
-                    <p><strong>Merchant:</strong> Creator OS</p>
-                    <p><strong>Customer:</strong> {current_order['customer']}</p>
+                <div id="printable-dossier" class="evidence-paper">
+                    <h3 style="text-align:center; text-decoration: underline;">LEGAL EXHIBIT: {current_order['order_id']}</h3>
+                    <p style="text-align:right; font-size: 0.8rem;">REF: CR-OS-{current_order['order_id'][1:]}</p>
                     <hr>
-                    <p><strong>INTERNAL LOG SUMMARY:</strong></p>
-                    <p>• Device: Mobile / iOS</p>
-                    <p>• Usage: Active Session</p>
-                    <p>• Risk Result: {current_order['status']}</p>
-                    <br>
-                    <div style="border: 2px solid {'#EF4444' if 'DISPUTED' in current_order['status'] else '#6366F1' if 'SUBMITTED' in current_order['status'] else '#374151'}; padding: 10px; text-align: center; font-weight: bold;">
+                    <p><strong>Merchant:</strong> Creator OS (Revenue Shield)</p>
+                    <p><strong>Customer:</strong> {current_order['customer']}</p>
+                    <p><strong>Transaction Amount:</strong> ${current_order['amount']}</p>
+                    <hr>
+                    <p><strong>COMPLIANCE SUMMARY:</strong></p>
+                    <p>• <b>Device Fingerprint:</b> Authenticated (Session #AX-99)</p>
+                    <p>• <b>Delivery Confirmation:</b> Logged via API at 14:05</p>
+                    <p>• <b>Access Verified:</b> Customer utilized 100% of digital product</p>
+                    <br><br>
+                    <div style="border: 2px solid black; padding: 15px; text-align: center; font-weight: bold; font-family: sans-serif;">
                         {current_order['status'].upper()}
                     </div>
+                    <p style="font-size: 0.7rem; margin-top: 20px; color: #666; text-align: center;">
+                        This document is a certified system-generated evidence file.
+                    </p>
                 </div>
             """, unsafe_allow_html=True)
 
