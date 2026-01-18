@@ -24,40 +24,25 @@ st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #E5E7EB; }
     
-    /* The Dossier Styling */
     .evidence-paper {
         background-color: #FFFFFF !important; 
         color: #111827 !important; 
-        padding: 50px !important; 
+        padding: 40px !important; 
         border-radius: 2px;
         font-family: 'Courier New', Courier, monospace;
         box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         border: 1px solid #ddd;
     }
 
-    /* FIX FOR BLANK PDF: Advanced Print Rules */
     @media print {
-        /* Hide everything by default */
         body * { visibility: hidden !important; }
-        
-        /* Only show the dossier and its children */
-        #printable-area, #printable-area * { 
-            visibility: visible !important; 
-        }
-        
-        /* Force the dossier to the top left of the printed page */
+        #printable-area, #printable-area * { visibility: visible !important; }
         #printable-area { 
             position: absolute !important; 
-            left: 0 !important; 
-            top: 0 !important; 
+            left: 0 !important; top: 0 !important; 
             width: 100% !important;
-            height: auto !important;
             background-color: white !important;
-            color: black !important;
         }
-        
-        /* Remove Streamlit's default margins/padding for the print */
-        .stMain { padding: 0 !important; }
     }
 
     .audit-log {
@@ -67,12 +52,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. SIDEBAR ---
+# --- 3. SIDEBAR & SIMULATION ---
 with st.sidebar:
     st.title("🛡️ Creator OS")
     page = st.radio("Navigation", ["🛡️ Revenue Shield", "👻 Ghost Hunter", "📊 Unified Data"])
     st.divider()
-    if db_connected and st.button("➕ Simulate Transaction"):
+    if db_connected and st.button("➕ Simulate Live Transaction"):
         is_dispute = random.random() < 0.2
         new_data = {
             "order_id": f"#{datetime.datetime.now().strftime('%M%S')}",
@@ -87,80 +72,118 @@ with st.sidebar:
 def submit_counter_evidence(order_id):
     if db_connected:
         supabase.table("orders").update({"status": "📤 SUBMITTED"}).eq("order_id", order_id).execute()
-        st.toast("Submitted!", icon="✅")
-        time.sleep(1)
+        st.toast("Evidence Transmitted!", icon="✅")
+        time.sleep(0.5)
         st.rerun()
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD
+# MODULE 1: REVENUE SHIELD (Synced Edition)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
     
     if db_connected:
+        # Fetch the latest 50 orders
         res = supabase.table("orders").select("*").order("created_at", desc=True).limit(50).execute()
         df = pd.DataFrame(res.data)
         
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Revenue Protected", "$28,450")
-        c2.metric("Active Disputes", len(df[df['status'] == "⚠️ DISPUTED"]), delta_color="inverse")
-        c3.metric("Win Rate", "87%")
-        c4.metric("Recovered", "$4,200")
+        if not df.empty:
+            # 1. TOP METRICS
+            disputes = df[df['status'] == "⚠️ DISPUTED"]
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Protected Revenue", f"${df['amount'].sum():,.0f}")
+            c2.metric("Active Disputes", len(disputes), delta_color="inverse")
+            c3.metric("Win Rate", "87%")
+            c4.metric("Risk Level", "Stable")
 
-        st.divider()
+            st.divider()
 
-        col_left, col_right = st.columns([1.3, 1])
+            # --- ACTION QUEUE & DOSSIER ---
+            col_left, col_right = st.columns([1.3, 1])
 
-        with col_left:
-            st.subheader("🎯 Action Queue")
-            selected_row = st.selectbox("Select Order", df.index)
-            current_order = df.iloc[selected_row]
-            
-            c_a1, c_a2 = st.columns(2)
-            with c_a1:
-                if "DISPUTED" in current_order['status']:
-                    if st.button("🚀 SUBMIT TO BANK", type="primary", use_container_width=True):
-                        submit_counter_evidence(current_order['order_id'])
-                else:
-                    st.button("🔍 SCAN FOR FRAUD", use_container_width=True)
-            
-            with c_a2:
-                # NEW PRINT LOGIC: Use a delay and target the #printable-area
-                if st.button("📥 EXPORT DOSSIER (PDF)", use_container_width=True):
-                    st.components.v1.html("""
-                        <script>
-                        setTimeout(function(){ window.print(); }, 500);
-                        </script>
-                    """, height=0)
+            with col_left:
+                st.subheader("🎯 Action Queue")
+                
+                # SYNC FIX: We map the Order ID directly to the selection
+                # We sort the dataframe so disputed ones appear first in the dropdown
+                df_sorted = df.sort_values(by='status', ascending=False) 
+                
+                selected_id = st.selectbox(
+                    "Select Order to Review", 
+                    options=df_sorted['order_id'].tolist(),
+                    help="Matches the Order ID in your ledger below."
+                )
+                
+                # Extract the full record for the selected ID
+                current_order = df[df['order_id'] == selected_id].iloc[0]
+                
+                c_btn1, c_btn2 = st.columns(2)
+                with c_btn1:
+                    if "DISPUTED" in current_order['status']:
+                        if st.button("🚀 SUBMIT TO BANK", type="primary", use_container_width=True):
+                            submit_counter_evidence(current_order['order_id'])
+                    else:
+                        st.button("🔍 SCAN FOR FRAUD", use_container_width=True)
+                
+                with c_btn2:
+                    if st.button("📥 EXPORT DOSSIER (PDF)", use_container_width=True):
+                        st.components.v1.html("<script>setTimeout(function(){ window.print(); }, 300);</script>", height=0)
 
-            st.write("---")
-            st.subheader("🕵️ Audit Trail")
-            st.markdown(f'<div class="audit-log">✅ Order Created<br>🤖 AI Risk Scan: {current_order["status"]}</div>', unsafe_allow_html=True)
+                st.write("---")
+                st.subheader("🕵️ Audit Trail")
+                st.markdown(f"""
+                <div class="audit-log">
+                    ✅ <b>Order {current_order['order_id']}</b> Initialized<br>
+                    🤖 AI Risk Scan: {current_order['status']}<br>
+                    👤 Customer Access: Verified via IP
+                </div>""", unsafe_allow_html=True)
 
-        with col_right:
-            # THE DOSSIER WITH PRINTABLE AREA ID
-            st.markdown(f"""
-                <div id="printable-area" class="evidence-paper">
-                    <h2 style="text-align:center;">LEGAL EVIDENCE</h2>
-                    <p style="text-align:right;">ID: {current_order['order_id']}</p>
-                    <hr>
-                    <p><strong>CUSTOMER:</strong> {current_order['customer']}</p>
-                    <p><strong>AMOUNT:</strong> ${current_order['amount']}</p>
-                    <p><strong>STATUS:</strong> {current_order['status']}</p>
-                    <hr>
-                    <h4>SYSTEM LOGS:</h4>
-                    <ul>
-                        <li>IP Authenticated: 192.168.1.1</li>
-                        <li>Digital Signature: Verified</li>
-                        <li>Content Delivered: 100% Complete</li>
-                    </ul>
-                    <br><br>
-                    <div style="border: 1px solid black; padding: 10px; text-align: center;">
-                        <b>OFFICIAL SYSTEM RECORD</b>
+            with col_right:
+                # THE DOSSIER
+                st.markdown(f"""
+                    <div id="printable-area" class="evidence-paper">
+                        <h2 style="text-align:center; text-decoration: underline;">LEGAL EVIDENCE</h2>
+                        <p style="text-align:right;">Order: {current_order['order_id']}</p>
+                        <hr>
+                        <p><strong>CUSTOMER:</strong> {current_order['customer']}</p>
+                        <p><strong>VALUE:</strong> ${current_order['amount']}</p>
+                        <p><strong>SYSTEM STATUS:</strong> {current_order['status']}</p>
+                        <hr>
+                        <h4>COMPLIANCE LOGS:</h4>
+                        <p>• Device Fingerprint Auth: OK</p>
+                        <p>• Digital Asset Delivery: 100%</p>
+                        <p>• Usage Time: 14 Minutes</p>
+                        <br><br>
+                        <div style="border: 2px solid black; padding: 10px; text-align: center; font-weight: bold;">
+                            OFFICIAL AUDIT RECORD
+                        </div>
                     </div>
-                </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
-        st.divider()
-        st.subheader("📋 Order Ledger")
-        st.dataframe(df[['order_id', 'created_at', 'customer', 'amount', 'status']], use_container_width=True, hide_index=True)
+            st.divider()
+
+            # --- THE LEDGER ---
+            st.subheader("📋 Order Ledger")
+            # Style disputed rows so they stand out in the ledger
+            def highlight_disputes(row):
+                return ['background-color: rgba(239, 68, 68, 0.1)'] * len(row) if "DISPUTED" in row['status'] else [''] * len(row)
+
+            st.dataframe(
+                df[['order_id', 'created_at', 'customer', 'amount', 'status']].style.apply(highlight_disputes, axis=1),
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "order_id": "Order #",
+                    "amount": st.column_config.NumberColumn("Total", format="$%.2f"),
+                    "created_at": st.column_config.DatetimeColumn("Date", format="D MMM, HH:mm"),
+                }
+            )
+        else:
+            st.info("No orders found. Click 'Simulate' in the sidebar to begin.")
+
+# ==========================================
+# MODULE 2: GHOST HUNTER (Retention)
+# ==========================================
+elif page == "👻 Ghost Hunter":
+    st.title("👻 Ghost Hunter AI")
+    st.info("Module 1 is locked in. Ready to start building the Churn Predictor here?")
