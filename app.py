@@ -9,18 +9,30 @@ st.set_page_config(page_title="Creator OS", page_icon="🛡️", layout="wide")
 # --- CSS STYLING ---
 st.markdown("""
     <style>
+    /* Deep Dark Background */
     .stApp { background-color: #0E1117; color: white; }
-    .metric-card { background-color: #1F2937; padding: 15px; border-radius: 8px; border-left: 4px solid #8B5CF6; }
+    
+    /* Stylized Metric Cards */
+    .metric-card { 
+        background-color: #1F2937; 
+        padding: 20px; 
+        border-radius: 10px; 
+        border: 1px solid #374151;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    /* Adjusting Plotly chart background */
+    .js-plotly-plot .plotly .bg { fill-opacity: 0; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.title("🛡️ Creator OS")
-    st.caption("v3.0 Full Suite")
+    st.caption("v3.1 Final Demo")
     st.divider()
     
-    # NAVIGATION MENU (Now with 3 Options)
+    # NAVIGATION MENU
     page = st.radio("Select Module", [
         "🛡️ Revenue Shield", 
         "👻 Ghost Hunter (Retention)", 
@@ -77,73 +89,98 @@ elif page == "👻 Ghost Hunter (Retention)":
         st.toast("Messages Sent!", icon="✅")
 
 # ==========================================
-# MODULE 3: UNIFIED LTV (The New Stuff)
+# MODULE 3: UNIFIED LTV (Redesigned)
 # ==========================================
 elif page == "📊 Unified Data (LTV)":
     st.title("Profit Command Center")
-    st.caption("Cross-Platform Attribution • True LTV Analysis")
+    st.caption("Visualizing the Customer Journey & Drop-offs")
     st.divider()
     
     # 1. THE BIG NUMBERS
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Blended ROAS", "3.2x", "Ad Spend Efficient")
-    c2.metric("Customer LTV", "$145.00", "+$12.50 vs last month")
-    c3.metric("CAC (Cost to Acquire)", "$42.00", "-$3.00")
-    c4.metric("Net Profit / User", "$103.00", "Healthy")
+    with c1: st.metric("Blended ROAS", "3.2x")
+    with c2: st.metric("Customer LTV", "$145.00", "+$12")
+    with c3: st.metric("CAC", "$42.00", "-$3")
+    with c4: st.metric("Net Profit/User", "$103.00")
     
     st.divider()
     
-    # 2. THE MONEY FLOW (Sankey Diagram)
+    # 2. THE NEW & IMPROVED MONEY FLOW MAP
     st.subheader("💰 The Money Flow Map")
-    st.caption("Visualizing where traffic comes from and where money is lost.")
     
-    # Defining the Nodes (Stops on the map)
-    labels = ["Ads (Meta)", "Ads (TikTok)", "Organic (YouTube)", 
-              "Landing Page", 
-              "Checkout", 
-              "Purchase ($)", "Churn (Lost)", "Upsell ($$)"]
+    # --- SANKEY DIAGRAM CONFIGURATION ---
     
-    # Defining the Links (Source -> Target)
-    # 0=Meta, 1=TikTok, 2=YouTube
-    # 3=Landing Page, 4=Checkout
-    # 5=Purchase, 6=Churn, 7=Upsell
+    # 1. Define Nodes (Labels now include totals for clarity)
+    labels = [
+        "Ads (Meta): 5k", "Ads (TikTok): 3k", "Organic (YouTube): 8k",  # 0, 1, 2 (Sources)
+        "Landing Page: 16k",                                          # 3 (Step 1)
+        "Checkout: 10k",                                              # 4 (Step 2 - Success)
+        "Lost Traffic: 12.5k",                                        # 5 (The "Bucket of Loss")
+        "Purchase: 3.5k",                                             # 6 (Step 3 - Success)
+        "Upsell (VIP): 1.2k", "Standard Customer: 2.3k"               # 7, 8 (Step 4 - Outcomes)
+    ]
     
-    source = [0, 1, 2,  3, 3,  4, 4,  5, 5] 
-    target = [3, 3, 3,  4, 6,  5, 6,  7, 7] # 7 is Upsell (Self loop or next step)
-    value  = [5000, 3000, 8000,  # Traffic into Landing Page
-              10000, 6000,      # LP to Checkout vs Bounce (Churn)
-              3500, 6500,       # Checkout to Purchase vs Abandon
-              1200, 2300]       # Purchase to Upsell
-    
-    # Color logic
-    link_colors = ['#8B5CF6']*3 + ['#10B981']*2 + ['#EF4444']*2 + ['#F59E0B']*2
+    # 2. Define Node Colors (Matching the theme)
+    node_colors = [
+        "#818CF8", "#818CF8", "#818CF8", # Sources (Indigo)
+        "#6366F1",                       # Landing Page (Deeper Indigo)
+        "#34D399",                       # Checkout (Teal)
+        "#EF4444",                       # Lost (Red)
+        "#10B981",                       # Purchase (Green)
+        "#FBBF24", "#10B981"             # Upsell (Gold), Standard (Green)
+    ]
 
+    # 3. Define Links (Source -> Target) and their Volumes
+    source = [0, 1, 2,    3, 3,    4, 4,    6, 6]
+    target = [3, 3, 3,    4, 5,    6, 5,    7, 8]
+    value  = [5000, 3000, 8000,  10000, 6000,  3500, 6500,  1200, 2300]
+    
+    # 4. Define Link Colors (The key to clarity!)
+    link_colors = [
+        'rgba(99, 102, 241, 0.3)', 'rgba(99, 102, 241, 0.3)', 'rgba(99, 102, 241, 0.3)', # Traffic In (Blueish)
+        'rgba(16, 185, 129, 0.5)', # LP -> Checkout (Green - Good!)
+        'rgba(239, 68, 68, 0.4)',  # LP -> Lost (Red - Bad!)
+        'rgba(16, 185, 129, 0.7)', # Checkout -> Purchase (Stronger Green)
+        'rgba(239, 68, 68, 0.6)',  # Checkout -> Lost (Stronger Red)
+        'rgba(245, 158, 11, 0.7)', # Purchase -> Upsell (Gold - Great!)
+        'rgba(16, 185, 129, 0.5)'  # Purchase -> Standard (Green)
+    ]
+
+    # 5. Build the Figure
     fig = go.Figure(data=[go.Sankey(
         node = dict(
-          pad = 15,
-          thickness = 20,
-          line = dict(color = "black", width = 0.5),
+          pad = 20,
+          thickness = 25,
+          line = dict(color = "#1F2937", width = 1),
           label = labels,
-          color = "#6366F1"
+          color = node_colors,
+          hovertemplate = 'Node: %{label}<extra></extra>'
         ),
         link = dict(
           source = source,
           target = target,
           value = value,
-          color = "rgba(100, 100, 100, 0.2)"
+          color = link_colors,
+          hovertemplate = 'Flow: %{source.label} → %{target.label}<br>Volume: <b>%{value}</b><extra></extra>'
         ))])
     
-    fig.update_layout(title_text="Traffic to Net Profit Flow", font_size=12, height=500, paper_bgcolor='rgba(0,0,0,0)', font_color="white")
+    fig.update_layout(
+        height=600,
+        font=dict(size=12, color="white"),
+        margin=dict(t=40, b=20, l=20, r=20),
+        paper_bgcolor='rgba(0,0,0,0)', # Transparent background
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    
     st.plotly_chart(fig, use_container_width=True)
 
     # 3. CHANNEL BREAKDOWN TABLE
+    st.divider()
     st.subheader("🏆 Channel ROI Leaderboard")
     channel_data = pd.DataFrame({
-        "Channel": ["YouTube (Organic)", "Meta Ads", "TikTok Ads", "Newsletter"],
-        "Spend": ["$0", "$5,200", "$3,100", "$0"],
-        "Revenue Generated": ["$12,400", "$15,600", "$4,200", "$8,900"],
-        "ROAS (Return)": ["∞", "3.0x", "1.35x", "∞"],
-        "Quality Score": ["High", "Medium", "Low", "High"]
+        "Channel": ["YouTube (Organic)", "Meta Ads", "TikTok Ads"],
+        "Spend": ["$0", "$5,200", "$3,100"],
+        "Revenue": ["$12,400", "$15,600", "$4,200"],
+        "ROAS": ["∞", "3.0x", "1.35x"],
     })
-    
     st.dataframe(channel_data, use_container_width=True, hide_index=True)
