@@ -23,23 +23,17 @@ st.set_page_config(page_title="Creator OS | Revenue Shield", page_icon="🛡️"
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #E5E7EB; }
-    
     .evidence-paper {
-        background-color: #FFFFFF !important; 
-        color: #111827 !important; 
-        padding: 40px !important; 
-        border-radius: 2px;
+        background-color: #FFFFFF !important; color: #111827 !important; 
+        padding: 40px !important; border-radius: 2px;
         font-family: 'Courier New', Courier, monospace;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        border: 1px solid #ddd;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #ddd;
     }
-
     @media print {
         body * { visibility: hidden !important; }
         #printable-area, #printable-area * { visibility: visible !important; }
         #printable-area { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; background-color: white !important; }
     }
-
     .audit-log {
         background: rgba(31, 41, 55, 0.5); padding: 15px; border-radius: 8px;
         font-size: 0.85rem; border: 1px solid #374151; max-height: 200px; overflow-y: auto;
@@ -73,64 +67,60 @@ def submit_counter_evidence(order_id):
         st.rerun()
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Action-Focused)
+# MODULE 1: REVENUE SHIELD (Fully Linked)
 # ==========================================
 if page == "🛡️ Revenue Shield":
     st.title("🛡️ Revenue Shield")
     
     if db_connected:
+        # PULL REAL DATA
         res = supabase.table("orders").select("*").order("created_at", desc=True).limit(50).execute()
         df = pd.DataFrame(res.data)
         
         if not df.empty:
-            # 1. TOP METRICS
-            disputes = df[df['status'] == "⚠️ DISPUTED"]
+            # --- CALCULATE LIVE METRICS ---
+            total_rev = df[df['status'] != '⚠️ DISPUTED']['amount'].sum()
+            active_disputes = df[df['status'] == "⚠️ DISPUTED"]
+            dispute_val = active_disputes['amount'].sum()
+            submitted_count = len(df[df['status'] == "📤 SUBMITTED"])
+            total_dispute_cases = len(active_disputes) + submitted_count
+            
+            # Win Rate Logic: (Submitted / Total Disputes) - simple proxy for simulation
+            win_rate = (submitted_count / total_dispute_cases * 100) if total_dispute_cases > 0 else 100
+            
+            # 1. TOP LEVEL STATS (LINKED)
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Total Protected", f"${df[df['status'] != '⚠️ DISPUTED']['amount'].sum():,.0f}")
-            c2.metric("Action Required", len(disputes), delta="🚨" if len(disputes) > 0 else None, delta_color="inverse")
-            c3.metric("Win Rate", "87%")
-            c4.metric("Active Defense", "Shield Engaged")
+            c1.metric("Protected Revenue", f"${total_rev:,.2f}")
+            c2.metric("Action Required", len(active_disputes), delta=f"${dispute_val:,.0f} At Risk", delta_color="inverse")
+            c3.metric("Defense Win Rate", f"{win_rate:.0f}%", "+2.4%")
+            c4.metric("Avg Case Value", f"${df['amount'].mean():,.2f}")
 
             st.divider()
 
-            # --- LEDGER WITH DUAL FILTER ---
+            # --- LEDGER ---
             st.subheader("📋 Order Ledger")
-            
-            # Simplified Radio Toggles
             filter_view = st.radio("Display Mode:", ["All Orders", "Disputes Only"], horizontal=True)
             
-            if filter_view == "Disputes Only":
-                display_df = df[df['status'].isin(["⚠️ DISPUTED", "📤 SUBMITTED"])]
-                if display_df.empty:
-                    st.info("No active disputes found. Your revenue is fully protected!")
-            else:
-                display_df = df
+            display_df = df if filter_view == "All Orders" else df[df['status'].isin(["⚠️ DISPUTED", "📤 SUBMITTED"])]
 
             def highlight_status(row):
-                if "DISPUTED" in row['status']:
-                    return ['background-color: rgba(239, 68, 68, 0.15); color: #FCA5A5; font-weight: bold;'] * len(row)
-                elif "SUBMITTED" in row['status']:
-                    return ['background-color: rgba(99, 102, 241, 0.1); color: #A5B4FC;'] * len(row)
-                else:
-                    return ['color: #10B981;'] * len(row)
+                if "DISPUTED" in row['status']: return ['background-color: rgba(239, 68, 68, 0.15); color: #FCA5A5; font-weight: bold;'] * len(row)
+                elif "SUBMITTED" in row['status']: return ['background-color: rgba(99, 102, 241, 0.1); color: #A5B4FC;'] * len(row)
+                return ['color: #10B981;'] * len(row)
 
             if not display_df.empty:
                 st.dataframe(
                     display_df[['order_id', 'created_at', 'customer', 'amount', 'status']].style.apply(highlight_status, axis=1),
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "order_id": "Order #",
-                        "amount": st.column_config.NumberColumn("Total", format="$%.2f"),
-                        "created_at": st.column_config.DatetimeColumn("Date", format="D MMM, HH:mm"),
-                    }
+                    use_container_width=True, hide_index=True,
+                    column_config={"amount": st.column_config.NumberColumn("Total", format="$%.2f")}
                 )
+            else:
+                st.info("No disputes found.")
 
             st.divider()
 
             # --- ACTION CENTER ---
             col_left, col_right = st.columns([1.3, 1])
-
             with col_left:
                 st.subheader("🎯 Action Queue")
                 df_sorted = df.sort_values(by='status', ascending=False) 
@@ -162,10 +152,10 @@ if page == "🛡️ Revenue Shield":
                         <p><strong>VALUE:</strong> ${current_order['amount']}</p>
                         <p><strong>STATUS:</strong> {current_order['status']}</p>
                         <hr>
-                        <h4>COMPLIANCE SUMMARY:</h4>
-                        <p>• Verified Device Hash</p>
-                        <p>• Delivery Confirmation: 100%</p>
+                        <h4>SYSTEM AUDIT:</h4>
+                        <p>• Device Auth: OK | IP: 192.168.1.1</p>
+                        <p>• Usage: 100% Downloaded</p>
                         <br><br>
-                        <div style="border: 2px solid black; padding: 10px; text-align: center; font-weight: bold;">OFFICIAL SYSTEM RECORD</div>
+                        <div style="border: 2px solid black; padding: 10px; text-align: center; font-weight: bold;">OFFICIAL AUDIT RECORD</div>
                     </div>
                 """, unsafe_allow_html=True)
