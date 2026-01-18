@@ -16,157 +16,161 @@ try:
 except Exception:
     db_connected = False
 
-# --- 2. PAGE SETTINGS & STYLING ---
-st.set_page_config(page_title="Creator OS", page_icon="🛡️", layout="wide")
+# --- 2. PREMIUM UI STYLING ---
+st.set_page_config(page_title="Creator OS | Premium", page_icon="🛡️", layout="wide")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #0E1117; color: white; }
-    /* Evidence Dossier Styling */
-    .evidence-paper {
-        background-color: white; color: black; padding: 30px; border-radius: 5px;
-        font-family: 'Courier New', monospace; box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    /* Global Deep Dark Theme */
+    .stApp { background-color: #0E1117; color: #E5E7EB; }
+    
+    /* Glassmorphism Cards */
+    .metric-card {
+        background: rgba(31, 41, 55, 0.7);
+        padding: 24px;
+        border-radius: 12px;
+        border: 1px solid rgba(75, 85, 99, 0.3);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
-    .status-badge { color: #10B981; font-weight: bold; border: 1px solid #10B981; padding: 2px 8px; border-radius: 4px; }
+    
+    /* Custom Evidence Dossier (Paper Look) */
+    .evidence-paper {
+        background-color: #FFFFFF;
+        color: #111827;
+        padding: 40px;
+        border-radius: 2px;
+        font-family: 'Courier New', Courier, monospace;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        line-height: 1.6;
+    }
+    
+    /* Status Labels */
+    .status-high { color: #EF4444; font-weight: bold; border: 1px solid #EF4444; padding: 2px 6px; border-radius: 4px; }
+    .status-low { color: #10B981; font-weight: bold; border: 1px solid #10B981; padding: 2px 6px; border-radius: 4px; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 3. SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.title("🛡️ Creator OS")
-    st.caption("v3.3 Hybrid Suite")
+    st.image("https://cdn-icons-png.flaticon.com/512/9424/9424443.png", width=60)
+    st.title("Creator OS")
+    st.caption("v3.5 // Enterprise Suite")
     st.divider()
     
-    page = st.radio("Select Module", [
-        "🛡️ Revenue Shield", 
-        "👻 Ghost Hunter (Retention)", 
-        "📊 Unified Data (LTV)"
-    ])
+    page = st.radio("Navigation", ["🛡️ Revenue Shield", "👻 Ghost Hunter", "📊 Unified Data"])
     
     st.divider()
-    
     if db_connected:
-        st.success("🟢 Database Linked")
-        # CALCULATE GLOBAL PROFIT FROM DB
-        try:
-            res = supabase.table("orders").select("amount").execute()
-            total_val = sum([item['amount'] for item in res.data]) if res.data else 0
-            st.metric("Global Protected Profit", f"${total_val:,.2f}")
-        except:
-            pass
-            
-        if st.button("➕ Simulate New Order"):
+        st.success("🟢 DB Connected")
+        if st.button("➕ Generate Real-Sim Order"):
+            # Adds more varied data for a better simulation
+            amount = float(datetime.datetime.now().second * 10) + 9.99
+            risk = "High" if amount > 300 else "Low"
             new_data = {
                 "order_id": f"#{datetime.datetime.now().strftime('%M%S')}",
-                "customer": "sim_user@vibe.com",
-                "amount": 499.0,
-                "status": "Protected"
+                "customer": f"user_{datetime.datetime.now().second}@vibe.io",
+                "amount": amount,
+                "status": risk
             }
             supabase.table("orders").insert(new_data).execute()
-            st.toast("Simulated Order Saved!", icon="✅")
-            time.sleep(1)
+            st.toast(f"Logged {risk} Risk Order: ${amount}", icon="✅")
+            time.sleep(0.5)
             st.rerun()
     else:
-        st.warning("🔴 Database Not Linked")
+        st.warning("🔴 DB Missing")
 
 # ==========================================
-# MODULE 1: REVENUE SHIELD (Back to Original)
+# MODULE 1: REVENUE SHIELD (Polished)
 # ==========================================
 if page == "🛡️ Revenue Shield":
-    col_header, col_roi = st.columns([3, 1])
-    with col_header:
-        st.title("Revenue Shield")
-        st.caption("Active Protection • Chargeback Defense")
-    with col_roi:
-        st.metric("ROI Multiplier", "12.4x", delta="Stable")
+    st.title("🛡️ Revenue Shield")
+    st.markdown("Automated chargeback defense and transaction risk scoring.")
     
+    # Hero Metrics
+    c1, c2, c3 = st.columns(3)
+    with c1: st.metric("Total Protected", "$28,450", "+12%")
+    with c2: st.metric("Win Rate", "82%", "+4%")
+    with c3: st.metric("Open Disputes", "3", "-1")
+
     st.divider()
     
-    col_left, col_right = st.columns([1, 1])
+    col_logs, col_view = st.columns([1.2, 1])
     
-    with col_left:
-        st.subheader("Live Defense Feed")
+    with col_logs:
+        st.subheader("Live Transaction Feed")
         if db_connected:
             try:
-                response = supabase.table("orders").select("*").order("created_at", desc=True).limit(5).execute()
-                if response.data:
-                    df = pd.DataFrame(response.data)
-                    st.dataframe(df[['order_id', 'customer', 'amount', 'status']], use_container_width=True, hide_index=True)
-                else:
-                    st.info("No orders in DB yet.")
+                res = supabase.table("orders").select("*").order("created_at", desc=True).limit(8).execute()
+                df = pd.DataFrame(res.data)
+                # Display with color-coded risk
+                st.dataframe(df[['order_id', 'amount', 'status', 'customer']], 
+                             use_container_width=True, hide_index=True)
             except:
-                st.error("Check Supabase Table Columns!")
+                st.info("Log into Supabase to view live data.")
         
-        st.write("---")
-        st.write("📢 **Latest Alert:** Potential Friendly Fraud detected on #994-A.")
-        if st.button("GENERATE EVIDENCE DOSSIER", type="primary", use_container_width=True):
-            st.session_state['show_dossier'] = True
+        st.markdown("---")
+        st.info("⚠️ **Alert:** Order #994-A matches 'Friendly Fraud' behavior patterns.")
+        if st.button("BUILD EVIDENCE CASE"):
+            st.session_state['show_case'] = True
 
-    with col_right:
-        if st.session_state.get('show_dossier'):
+    with col_view:
+        if st.session_state.get('show_case'):
             st.markdown("""
                 <div class="evidence-paper">
-                    <h3 style="text-align:center;">EVIDENCE DOSSIER: #994-A</h3>
+                    <h3 style="text-align:center; text-decoration: underline;">EXHIBIT A: TRANSACTION LOGS</h3>
+                    <p style="text-align:right;"><strong>REF:</strong> #994-A</p>
+                    <p><strong>SUBJECT:</strong> Digital Product Delivery Verification</p>
                     <hr>
-                    <p><strong>Customer:</strong> John Doe (j.doe@example.com)</p>
-                    <p><strong>Status:</strong> <span style="color:green">MATCHED (IP & BILLING)</span></p>
-                    <p><strong>Digital Custody:</strong></p>
-                    <ul>
-                        <li>✅ 10:05 AM - Course Login</li>
-                        <li>✅ 10:15 AM - Video 1 (100% Viewed)</li>
-                        <li>✅ 10:20 AM - Assets Downloaded</li>
-                    </ul>
-                    <div style="border:1px solid black; padding:10px; text-align:center; font-weight:bold;">
-                        AUTO-SUBMITTED TO BANK
+                    <p><strong>1. PROOF OF ACCESS:</strong> User logged in from IP <b>192.168.1.1</b> at 14:02 UTC. This IP matches the billing address on file.</p>
+                    <p><strong>2. CONTENT CONSUMPTION:</strong> User accessed 'Module 1: Getting Started' and completed the 15-minute video training.</p>
+                    <p><strong>3. DOWNLOAD CONFIRMATION:</strong> Digital asset <i>'Creator_Assets_v1.zip'</i> was successfully downloaded at 14:20 UTC.</p>
+                    <br>
+                    <p><strong>VERDICT:</strong> Product was received and utilized. Claim 'Product Not Received' is factually incorrect.</p>
+                    <div style="border: 2px solid black; padding: 15px; text-align: center; margin-top: 20px;">
+                        <b>[ AUTO-SUBMITTED TO STRIPE/PLATFORM ]</b>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
         else:
-            st.info("Select 'Generate' to view the Evidence Dossier.")
+            st.markdown("""
+                <div style="height: 400px; display: flex; align-items: center; justify-content: center; border: 2px dashed #374151; border-radius: 10px;">
+                    <p style="color: #6B7280;">Select an flagged order to view the evidence case.</p>
+                </div>
+            """, unsafe_allow_html=True)
 
 # ==========================================
-# MODULE 2: GHOST HUNTER (Back to Original)
+# MODULE 2: GHOST HUNTER (Polished)
 # ==========================================
-elif page == "👻 Ghost Hunter (Retention)":
-    st.title("Ghost Hunter AI")
-    st.caption("Predictive Churn Detection System")
+elif page == "👻 Ghost Hunter":
+    st.title("👻 Ghost Hunter AI")
+    st.markdown("Monitoring community engagement to prevent subscription churn.")
+    
+    # Retention Pulse
+    chart_data = pd.DataFrame({'days': range(10), 'activity': [30, 45, 40, 60, 55, 70, 65, 80, 75, 90]})
+    st.area_chart(chart_data.set_index('days'), height=150, color="#10B981")
+    
     st.divider()
     
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Churn Risk", "High", "+4 Members")
-    m2.metric("Saved this Month", "12 Members", "+2")
-    m3.metric("Retention Rate", "94%", "+1.2%")
-
-    st.subheader("⚠️ At-Risk Member Analysis")
-    risk_data = [
-        {"User": "@CryptoKing_99", "Last Active": "12 Days Ago", "Health": 15, "Action": "Send Discount"},
-        {"User": "Sarah_Designs", "Last Active": "8 Days Ago", "Health": 22, "Action": "Soft Nudge"},
-        {"User": "MikeTrading", "Last Active": "15 Days Ago", "Health": 10, "Action": "Call/Email"},
+    st.subheader("High Risk Members")
+    risk_users = [
+        {"User": "@CryptoKing_99", "Risk": "Critical", "Reason": "0 logins in 14 days", "Score": 12},
+        {"User": "Sarah_Designs", "Risk": "Medium", "Reason": "Left VIP Discord", "Score": 34},
+        {"User": "MikeTrading", "Risk": "High", "Reason": "Payment Method Expiring", "Score": 18},
     ]
-    st.dataframe(pd.DataFrame(risk_data), use_container_width=True, hide_index=True, column_config={
-        "Health": st.column_config.ProgressColumn("User Health Score", min_value=0, max_value=100)
+    st.dataframe(pd.DataFrame(risk_users), use_container_width=True, hide_index=True, column_config={
+        "Score": st.column_config.ProgressColumn("Engagement", min_value=0, max_value=100, color="red")
     })
     
-    if st.button("🚀 EXECUTE AUTO-RECOVERY PROTOCOL"):
-        with st.status("Ghost Hunter active...", expanded=True) as status:
-            st.write("Scanning Discord activity...")
-            time.sleep(1)
-            st.write("Sending AI-personalized DMs...")
-            time.sleep(1)
-            status.update(label="Recovery Sequence Complete!", state="complete")
-        st.balloons()
+    st.button("🚀 DEPLOY RECOVERY PROTOCOL", type="primary", use_container_width=True)
 
 # ==========================================
-# MODULE 3: UNIFIED DATA (Back to Original)
+# MODULE 3: UNIFIED DATA (Polished)
 # ==========================================
-elif page == "📊 Unified Data (LTV)":
-    st.title("Profit Command Center")
-    st.caption("Visualizing the Customer Journey")
-    st.divider()
+elif page == "📊 Unified Data":
+    st.title("📊 Unified Data")
+    st.markdown("Visualizing the flow from Ad Spend to Net Profit.")
     
-    # THE CLEAR COLORFUL MAP
-    st.subheader("💰 The Money Flow Map")
-    
+    # THE CLEAR FLOW MAP
     labels = ["Meta Ads", "TikTok Ads", "YouTube", "Landing Page", "Checkout", "Lost Traffic", "Purchase", "Upsell"]
     source = [0, 1, 2,  3, 3,  4, 4,  6]
     target = [3, 3, 3,  4, 5,  6, 5,  7]
@@ -179,16 +183,15 @@ elif page == "📊 Unified Data (LTV)":
     ]
 
     fig = go.Figure(data=[go.Sankey(
-        node = dict(pad=15, thickness=20, label=labels, color="#818CF8"),
+        node = dict(pad=20, thickness=20, label=labels, color="#818CF8"),
         link = dict(source=source, target=target, value=value, color=link_colors)
     )])
-    fig.update_layout(height=550, paper_bgcolor='rgba(0,0,0,0)', font_color="white", margin=dict(l=10, r=10, t=10, b=10))
+    fig.update_layout(height=500, paper_bgcolor='rgba(0,0,0,0)', font_color="white", margin=dict(l=10, r=10, t=10, b=10))
     st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("Channel ROI Leaderboard")
-    st.table(pd.DataFrame({
-        "Source": ["YouTube", "Meta", "TikTok"],
-        "Spend": ["$0", "$5,200", "$3,100"],
-        "Revenue": ["$12,400", "$15,600", "$4,200"],
-        "ROAS": ["∞", "3.0x", "1.35x"]
-    }))
+    
+    # ROI Leaderboard
+    c1, c2 = st.columns(2)
+    with c1:
+        st.success("🏆 **Best Channel:** YouTube (Organic)")
+    with c2:
+        st.error("📉 **Worst Channel:** TikTok Ads")
